@@ -339,8 +339,18 @@ function makeQuestion(item){
   var blank = !isNew && findBlank(item);
   if (blank) types.push('blank');
   if (!isNew && item.word.length <= 12 && item.word.indexOf(' ') < 0) types.push('scramble');
+  if (!isNew){
+    (item.quiz || []).forEach(function(t){ types.push(t.type, t.type); });   // authored usage questions, double weight
+  }
   var type = pick(types);
   var q = { item:item, type:type, isNew:isNew };
+  if (type === 'syn' || type === 'ant' || type === 'cloze' || type === 'scen'){
+    var authored = item.quiz.filter(function(t){ return t.type === type; })[0];
+    q.prompt = authored.prompt || '';
+    q.options = shuffle(authored.options.slice());
+    q.answer = authored.answer;
+    return q;
+  }
 
   function distractorPool(){
     var pool = WORDS.filter(function(o){ return o.word !== item.word; });
@@ -575,6 +585,8 @@ function learnView(){
     posChip(item.pos) + ' ' + levelChip(item.level) +
     '<p class="sentence" style="margin:14px 0 6px;"><b>' + esc(item.meaning) + '</b></p>' +
     (blankExample ? '<p class="sentence muted" style="margin:0;">&ldquo;' + esc(blankExample) + '&rdquo;</p>' : '') +
+    (item.syns && item.syns.length ? '<p class="explain" style="margin:10px 0 0;"><b>Similar words:</b> ' + esc(item.syns.join(', ')) + '</p>' : '') +
+    (item.tip ? '<p class="explain" style="margin:6px 0 0;"><b>Using it:</b> ' + esc(item.tip) + '</p>' : '') +
     '</div>' +
     '<div class="center" style="margin-top:20px;"><button class="btn primary" data-act="next">Got it &rarr;</button></div>' +
     '</div>' +
@@ -612,6 +624,19 @@ function quizView(){
     body = tag + '<div class="qask">Which word means&hellip;</div>' +
       '<p class="sentence" style="font-weight:700;">&ldquo;' + esc(item.meaning) + '&rdquo;</p>' + posChip(item.pos) +
       '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i, 'font-family:Outfit,sans-serif;font-size:1.05rem;'); }).join('') + '</div>';
+  } else if (q.type === 'syn' || q.type === 'ant'){
+    body = tag + '<div class="qask">' + (q.type === 'syn' ? 'Synonym hunt' : 'Opposite hunt') + '</div>' +
+      '<p class="sentence">Which word means ' + (q.type === 'syn' ? 'almost the <b>same</b> as' : 'the <b>opposite</b> of') + '&hellip;</p>' +
+      '<div class="qword">' + esc(item.word) + '</div>' + posChip(item.pos) +
+      '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i, 'font-family:Outfit,sans-serif;font-size:1.05rem;'); }).join('') + '</div>';
+  } else if (q.type === 'cloze'){
+    body = tag + '<div class="qask">Which word fits?</div>' +
+      '<p class="sentence">' + esc(q.prompt).replace(/___+/g, '<span class="blank">&nbsp;?&nbsp;</span>') + '</p>' +
+      '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i, 'font-family:Outfit,sans-serif;font-size:1.05rem;'); }).join('') + '</div>';
+  } else if (q.type === 'scen'){
+    body = tag + '<div class="qask">Spot it in real life</div>' +
+      '<p class="sentence" style="font-weight:700;">' + esc(q.prompt) + '</p>' +
+      '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i); }).join('') + '</div>';
   } else if (q.type === 'blank'){
     body = tag + '<div class="qask">Finish the sentence</div>' +
       '<p class="sentence">' + esc(q.blank.before) + ' <span class="blank">&nbsp;?&nbsp;</span>' + esc(q.blank.after) + '</p>' +
@@ -632,6 +657,9 @@ function quizView(){
     fb = '<div class="fb ' + (f.correct ? 'good' : 'bad') + '">' +
       (f.correct ? pick(['Nice one!', 'You got it!', 'Correct!', 'Onward and upward!']) : 'Not quite &mdash; the answer is “' + esc(q.answer) + '”') +
       (f.detail ? '<div class="note">' + f.detail + '</div>' : '') +
+      (!f.correct && (q.type === 'syn' || q.type === 'ant' || q.type === 'cloze' || q.type === 'scen')
+        ? '<div class="note">Remember: <b>' + esc(item.word) + '</b> means ' + esc(item.meaning) +
+          (item.tip ? '<br>' + esc(item.tip) : '') + '</div>' : '') +
       (!f.correct && !entry.retry ? '<div class="note">You’ll see this one again before the end.</div>' : '') +
       '</div><div class="center" style="margin-top:16px;"><button class="btn primary" data-act="next">' +
       (session.idx + 1 >= session.queue.length ? 'Finish' : 'Next') + ' &rarr;</button></div>';
@@ -715,7 +743,8 @@ function parentView(){
     return '<span class="acc-pill ' + cls + '">' + p + '%</span>';
   }
   var focus = sorted.filter(function(r){ return r.a === null || r.a < 0.8 || r.s.box <= 2; }).slice(0, 5);
-  var typeNames = { meaning:'Pick the meaning', wordpick:'Pick the word', blank:'Fill in the sentence', scramble:'Unscramble' };
+  var typeNames = { meaning:'Pick the meaning', wordpick:'Pick the word', blank:'Fill in the sentence', scramble:'Unscramble',
+    syn:'Synonyms', ant:'Antonyms', cloze:'New-sentence fit', scen:'Real-life usage' };
   var typeAgg = {};
   state.sessions.forEach(function(ss){
     Object.keys(ss.types || {}).forEach(function(k){
