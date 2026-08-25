@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Evia's Word Summit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+:root{
+  --bg:#F5F2FA; --surface:#FFFFFF; --surface2:#EAE4F4; --ink:#251A3D; --muted:#6D6288;
+  --brand:#6C3FA6; --brand-deep:#4E2C7A; --brand-soft:#E7DCF7; --on-brand:#FFFFFF;
+  --accent:#DFA22F; --accent-deep:#8A6210;
+  --good:#2C9C5A; --good-bg:#E2F4E9; --bad:#D94F30; --bad-bg:#FBE9E3;
+  --line:#D8CFE8; --shadow:rgba(50,30,80,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151022; --surface:#1F1733; --surface2:#2A2044; --ink:#EFEAF9; --muted:#9C8FBC;
+    --brand:#A47FE0; --brand-deep:#3A2760; --brand-soft:#2E2151; --on-brand:#160E28;
+    --accent:#F2BC57; --accent-deep:#7A5A10;
+    --good:#4CC97E; --good-bg:#173826; --bad:#FF8261; --bad-bg:#3D211A;
+    --line:#3A2D5C; --shadow:rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151022; --surface:#1F1733; --surface2:#2A2044; --ink:#EFEAF9; --muted:#9C8FBC;
+  --brand:#A47FE0; --brand-deep:#3A2760; --brand-soft:#2E2151; --on-brand:#160E28;
+  --accent:#F2BC57; --accent-deep:#7A5A10;
+  --good:#4CC97E; --good-bg:#173826; --bad:#FF8261; --bad-bg:#3D211A;
+  --line:#3A2D5C; --shadow:rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0; padding:0 16px 48px;
+  font-family:"Atkinson Hyperlegible", "Trebuchet MS", Verdana, sans-serif; font-size:17px; line-height:1.5;}
+h1,h2,h3{font-family:Outfit, "Trebuchet MS", sans-serif; font-weight:600; letter-spacing:.1px; text-wrap:balance;}
+.wrap{max-width:680px; margin:0 auto;}
+header.app{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:20px 0 14px;}
+.logo{display:flex; align-items:center; gap:10px; font-family:Outfit,sans-serif; font-weight:700; font-size:1.3rem;}
+.logo .mark{width:38px;height:38px;border-radius:12px;background:var(--brand);color:var(--on-brand);
+  display:grid;place-items:center;font-size:1.2rem; box-shadow:0 3px 0 var(--brand-deep); font-weight:700;}
+.tabs{display:flex; gap:6px; background:var(--surface2); border-radius:14px; padding:5px; width:max-content; margin:0 auto 22px;}
+.tabs button{border:0; background:transparent; color:var(--muted); font-family:Outfit,sans-serif; font-weight:500;
+  font-size:.95rem; padding:8px 16px; border-radius:10px; cursor:pointer;}
+.tabs button.on{background:var(--surface); color:var(--ink); box-shadow:0 2px 6px var(--shadow);}
+.card{background:var(--surface); border:2px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 4px 0 var(--line); margin-bottom:18px;}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:14px; cursor:pointer;
+  font-family:Outfit,sans-serif; font-weight:600; font-size:1rem; padding:12px 20px;
+  background:var(--surface); color:var(--ink); border:2px solid var(--line); box-shadow:0 3px 0 var(--line);}
+.btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--line);}
+.btn.primary{background:var(--brand); color:var(--on-brand); border-color:var(--brand-deep); box-shadow:0 4px 0 var(--brand-deep); font-size:1.1rem; padding:14px 26px;}
+.btn.primary:active{box-shadow:0 1px 0 var(--brand-deep);}
+.btn.small{padding:8px 14px; font-size:.9rem;}
+.btn:focus-visible,.tabs button:focus-visible,.opt:focus-visible,.tile-btn:focus-visible{outline:3px solid var(--accent); outline-offset:2px;}
+.btn[disabled]{opacity:.55; cursor:default;}
+.big-num{font-family:Outfit,sans-serif; font-weight:700; font-size:2.6rem; line-height:1;}
+.muted{color:var(--muted);}
+.center{text-align:center;}
+.home-hero{padding:30px 22px;}
+.tilerow{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:18px;}
+.tile{background:var(--surface); border:2px solid var(--line); border-radius:14px; padding:14px 16px;}
+.tile .v{font-family:Outfit,sans-serif; font-weight:700; font-size:1.7rem; font-variant-numeric:tabular-nums;}
+.tile .l{color:var(--muted); font-size:.85rem;}
+.chip{display:inline-block; border-radius:999px; padding:2px 10px; font-size:.8rem; font-weight:700;}
+.pos-noun{background:rgba(76,110,225,.16);}
+.pos-verb{background:rgba(217,79,48,.16);}
+.pos-adjective{background:rgba(223,162,47,.22);}
+.pos-adverb{background:rgba(46,160,120,.18);}
+.lvl-1{background:rgba(46,160,120,.18);}
+.lvl-2{background:rgba(223,162,47,.22);}
+.lvl-3{background:rgba(217,79,110,.18);}
+.qword{font-family:Outfit,sans-serif; font-weight:700; font-size:2.1rem; margin:6px 0 2px;}
+.qask{color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:.78rem;}
+.newbadge{color:var(--accent-deep); font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:.78rem;}
+:root[data-theme="dark"] .newbadge{color:var(--accent);}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .newbadge{color:var(--accent);}}
+.opts{display:flex; flex-direction:column; gap:10px; margin-top:16px;}
+.opt{text-align:left; font-size:1rem; line-height:1.4; padding:13px 16px; border-radius:14px; cursor:pointer;
+  background:var(--surface2); color:var(--ink); border:2px solid var(--line); font-family:inherit;}
+.opt:hover{border-color:var(--brand);}
+.opt.right{background:var(--good-bg); border-color:var(--good);}
+.opt.wrong{background:var(--bad-bg); border-color:var(--bad);}
+.opt[disabled]{cursor:default;}
+.sentence{font-size:1.15rem; line-height:1.7; margin:10px 0;}
+.blank{display:inline-block; min-width:90px; border-bottom:3px solid var(--brand); text-align:center; font-weight:700; color:var(--brand);}
+.typebox{display:flex; gap:10px; margin-top:14px;}
+.typebox input{flex:1; font-family:Outfit,sans-serif; font-size:1.2rem; padding:11px 14px; border-radius:12px;
+  border:2px solid var(--line); background:var(--surface2); color:var(--ink); min-width:0;}
+.typebox input:focus-visible{outline:3px solid var(--accent); outline-offset:1px;}
+.tiles{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
+.tile-btn{width:44px;height:48px;border-radius:12px;border:2px solid var(--line);background:var(--surface2);
+  font-family:Outfit,sans-serif;font-weight:600;font-size:1.25rem;color:var(--ink);cursor:pointer;box-shadow:0 3px 0 var(--line);}
+.tile-btn[disabled]{opacity:.25; box-shadow:none;}
+.slots{display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; min-height:52px; align-items:center;}
+.slot{width:38px;height:46px;border-radius:10px;border:2px dashed var(--line);display:grid;place-items:center;
+  font-family:Outfit,sans-serif;font-weight:600;font-size:1.25rem;}
+.slot.filled{border-style:solid; background:var(--brand-soft); border-color:var(--brand);}
+.fb{border-radius:14px; padding:14px 16px; margin-top:16px; font-weight:700; border:2px solid;}
+.fb.good{background:var(--good-bg); border-color:var(--good);}
+.fb.bad{background:var(--bad-bg); border-color:var(--bad);}
+.fb .note{font-weight:400; margin-top:4px;}
+.progress{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+.pbar{flex:1; height:10px; border-radius:999px; background:var(--surface2); overflow:hidden;}
+.pbar div{height:100%; background:var(--brand); border-radius:999px; transition:width .3s;}
+.pbar.gold div{background:var(--accent);}
+.streak{font-family:Outfit,sans-serif; font-weight:700; color:var(--accent-deep);}
+:root[data-theme="dark"] .streak{color:var(--accent);}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .streak{color:var(--accent);}}
+.stars{font-size:2.4rem; letter-spacing:.1em; color:var(--accent);}
+.stars .off{color:var(--surface2); -webkit-text-stroke:1px var(--line);}
+table{border-collapse:collapse; width:100%; font-size:.92rem;}
+th{color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-size:.72rem; text-align:left; padding:8px 10px; border-bottom:2px solid var(--line);}
+td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; font-variant-numeric:tabular-nums;}
+.tblwrap{overflow-x:auto;}
+.dots{white-space:nowrap; letter-spacing:2px; font-size:.8rem;}
+.dots .on{color:var(--brand);}
+.dots .offd{color:var(--line);}
+.acc-pill{border-radius:999px; padding:2px 9px; font-weight:700; font-size:.8rem; white-space:nowrap;}
+.acc-hi{background:var(--good-bg); color:var(--good);}
+.acc-mid{background:rgba(223,162,47,.22); color:var(--accent-deep);}
+:root[data-theme="dark"] .acc-mid{color:var(--accent);}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .acc-mid{color:var(--accent);}}
+.acc-lo{background:var(--bad-bg); color:var(--bad);}
+.deckrow{display:flex; justify-content:space-between; gap:14px; padding:14px 0; border-bottom:1px solid var(--line); align-items:center;}
+.deckrow:last-child{border-bottom:0;}
+.deckrow .info{flex:1; min-width:0;}
+.deckrow .pbar{height:8px; margin-top:8px;}
+.wordrow{display:flex; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
+.wordrow:last-child{border-bottom:0;}
+.savebanner{display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--accent);
+  color:#241800; border-radius:14px; padding:10px 16px; margin-bottom:16px; font-weight:700;}
+.savebanner .btn{padding:8px 14px; font-size:.95rem;}
+.explain{font-size:.9rem; color:var(--muted);}
+ul.tricky{padding-left:0; list-style:none; margin:10px 0 0;}
+ul.tricky li{padding:8px 0; border-bottom:1px solid var(--line);}
+ul.tricky li:last-child{border-bottom:0;}
+ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
+.learncard{border-left:6px solid var(--accent); padding-left:16px; margin-top:10px;}
+#confetti{position:fixed; inset:0; pointer-events:none;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
+@media (max-width:480px){
+  .card{padding:16px;}
+  .qword{font-size:1.7rem;}
+  body{font-size:16px;}
+}
+</style>
+</head>
+<body>
+<div id="root" class="wrap"></div>
+
+<script src="words.js"></script>
+<script>
+(function(){
+"use strict";
+// Cloud score sync (Supabase). Set to null for on-device storage only.
+var REMOTE = {
+  url: 'https://ywoaeadxfettakxehsel.supabase.co',
+  key: 'sb_publishable_grIeEoGO_hvTpDm0dI6bsw_OD4tS041',
+  row: 'evia'
+};
+var LS_KEY = 'word-summit-state-v1';
+var DAY = 86400000;
+var INTERVALS = [0, 1, 3, 7, 14];          // days until next review for box 1..5
+var SESSION_SIZE = 10;
+var NEW_CAP = 6;                            // max brand-new words introduced per round
+
+var LEVELS = { 1:'Essential', 2:'Intermediate', 3:'Advanced' };
+var DECKS = [];
+var deckIndex = {};
+WORDS.forEach(function(w){
+  if (!deckIndex[w.deck]){
+    deckIndex[w.deck] = { id:w.deck, level:w.level, items:[] };
+    DECKS.push(deckIndex[w.deck]);
+  }
+  deckIndex[w.deck].items.push(w);
+});
+
+var state = { savedAt:0, sessions:[], stats:{}, started:{} };
+var dirty = false;
+try {
+  var raw = localStorage.getItem(LS_KEY);
+  if (raw) {
+    var loc = JSON.parse(raw);
+    if (loc && loc.savedAt > state.savedAt) { state = loc; }
+  }
+} catch (e) {}
+if (!state.started) state.started = {};
+
+function saveLocal(){
+  try { state.savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+  if (REMOTE) dirty = true;
+}
+
+/* ---------- cloud sync (Supabase REST) ---------- */
+function remoteHeaders(){
+  return { apikey: REMOTE.key, Authorization: 'Bearer ' + REMOTE.key, 'Content-Type': 'application/json' };
+}
+async function remoteLoad(){
+  var r = await fetch(REMOTE.url + '/rest/v1/word_lab?id=eq.' + REMOTE.row + '&select=state', { headers: remoteHeaders() });
+  if (!r.ok) throw new Error('remote load failed');
+  var rows = await r.json();
+  return rows.length ? rows[0].state : null;
+}
+async function remoteSave(){
+  var h = remoteHeaders();
+  h.Prefer = 'resolution=merge-duplicates';
+  var r = await fetch(REMOTE.url + '/rest/v1/word_lab', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ id: REMOTE.row, state: state, updated_at: new Date().toISOString() })
+  });
+  if (!r.ok) throw new Error('remote save failed');
+}
+function mergeRemote(remote){
+  if (!remote) return false;
+  var changed = false;
+  var haveSession = {};
+  state.sessions.forEach(function(s){ haveSession[s.t] = 1; });
+  (remote.sessions || []).forEach(function(s){
+    if (!haveSession[s.t]){ state.sessions.push(s); changed = true; }
+  });
+  state.sessions.sort(function(a, b){ return a.t - b.t; });
+  Object.keys(remote.stats || {}).forEach(function(id){
+    var rs = remote.stats[id], ls = state.stats[id];
+    if (!ls || rs.last > ls.last){ state.stats[id] = rs; changed = true; }
+  });
+  Object.keys(remote.started || {}).forEach(function(d){
+    if (!state.started[d]){ state.started[d] = true; changed = true; }
+  });
+  return changed;
+}
+async function persist(){
+  saveLocal();
+  if (!REMOTE) return { ok:true, local:true };
+  try { await remoteSave(); dirty = false; return { ok:true }; }
+  catch (e) { return { ok:false }; }
+}
+
+/* ---------- stats helpers ---------- */
+var EMPTY = { box:1, due:0, last:0, seen:0, correct:0, wrong:0 };
+function st0(id){ return state.stats[id] || EMPTY; }
+function st(id){
+  if (!state.stats[id]) state.stats[id] = { box:1, due:0, last:0, seen:0, correct:0, wrong:0 };
+  return state.stats[id];
+}
+function acc(s){ var n = s.correct + s.wrong; return n ? s.correct / n : null; }
+function startedItems(){ return WORDS.filter(function(it){ return state.started[it.deck]; }); }
+function dueCounts(){
+  var now = Date.now(), today = 0, fresh = 0;
+  startedItems().forEach(function(it){
+    var s = st0(it.id);
+    if (s.seen > 0 && s.due <= now) today++;
+    else if (s.seen === 0) fresh++;
+  });
+  return { today:today, fresh:fresh };
+}
+function startOfDay(t){ var d = new Date(t); d.setHours(0,0,0,0); return d.getTime(); }
+
+/* ---------- small utils ---------- */
+function shuffle(a){ a = a.slice(); for (var i=a.length-1; i>0; i--){ var j = Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function lev(a, b){
+  var m = a.length, n = b.length, i, j;
+  if (!m) return n; if (!n) return m;
+  var prev = [], cur = [];
+  for (j=0; j<=n; j++) prev[j] = j;
+  for (i=1; i<=m; i++){
+    cur[0] = i;
+    for (j=1; j<=n; j++){
+      cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a.charAt(i-1) === b.charAt(j-1) ? 0 : 1));
+    }
+    var t = prev; prev = cur; cur = t;
+  }
+  return prev[n];
+}
+function relTime(t){
+  if (!t) return '—';
+  var d = startOfDay(Date.now()) - startOfDay(t);
+  if (d <= 0) return 'today';
+  var days = Math.round(d / DAY);
+  if (days === 1) return 'yesterday';
+  if (days < 30) return days + 'd ago';
+  return new Date(t).toLocaleDateString();
+}
+function dueLabel(t){
+  var now = Date.now();
+  if (t <= now) return 'now';
+  var d = startOfDay(t) - startOfDay(now);
+  var days = Math.round(d / DAY);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  return 'in ' + days + 'd';
+}
+
+/* ---------- word matching ---------- */
+function tokenMatches(tok, word){
+  var clean = tok.toLowerCase().replace(/[^a-z]/g, '');
+  if (!clean) return false;
+  var w = word.toLowerCase();
+  if (clean === w) return true;
+  var sufs = ['s','es','ed','d','ing','ly','ness'];
+  for (var i=0; i<sufs.length; i++){
+    var s = sufs[i];
+    if (clean === w + s) return true;
+    if (clean.length > s.length && clean.slice(-s.length) === s){
+      var stem = clean.slice(0, -s.length);
+      if (lev(stem, w) <= 2 && stem[0] === w[0]) return true;
+    }
+  }
+  if (clean.length >= 5 && clean[0] === w[0] && lev(clean, w) <= 2) return true;
+  return false;
+}
+function findBlank(item){
+  if (!item.example) return null;
+  var toks = item.example.split(/(\s+)/);
+  for (var i=0; i<toks.length; i++){
+    if (tokenMatches(toks[i], item.word)){
+      var before = toks.slice(0, i).join('');
+      var after = toks.slice(i+1).join('');
+      var punct = toks[i].match(/[^A-Za-z]*$/)[0];
+      return { before: before, after: punct + after };
+    }
+  }
+  return null;
+}
+function checkTyped(input, word){
+  var a = input.trim().toLowerCase().replace(/[^a-z]/g,'');
+  var b = word.toLowerCase();
+  if (!a) return { ok:false };
+  if (a === b) return { ok:true, exact:true };
+  var tol = b.length >= 8 ? 2 : 1;
+  if (a.length >= 3 && lev(a, b) <= tol) return { ok:true, exact:false };
+  return { ok:false };
+}
+
+/* ---------- question generation ---------- */
+function makeQuestion(item){
+  var isNew = st0(item.id).seen === 0;
+  var types = ['meaning', 'wordpick'];
+  var blank = !isNew && findBlank(item);
+  if (blank) types.push('blank');
+  if (!isNew && item.word.length <= 12 && item.word.indexOf(' ') < 0) types.push('scramble');
+  var type = pick(types);
+  var q = { item:item, type:type, isNew:isNew };
+
+  function distractorPool(){
+    var pool = WORDS.filter(function(o){ return o.word !== item.word; });
+    var lvl = pool.filter(function(o){ return o.level === item.level && o.pos === item.pos; });
+    if (lvl.length >= 3) return lvl;
+    var same = pool.filter(function(o){ return o.pos === item.pos; });
+    return same.length >= 3 ? same : pool;
+  }
+  if (type === 'meaning'){
+    var opts = [], used = {};
+    shuffle(distractorPool()).forEach(function(o){
+      if (opts.length < 3 && !used[o.meaning] && o.meaning !== item.meaning){ used[o.meaning] = 1; opts.push(o.meaning); }
+    });
+    q.options = shuffle(opts.concat([item.meaning]));
+    q.answer = item.meaning;
+  } else if (type === 'wordpick'){
+    var opts2 = [], used2 = {};
+    shuffle(distractorPool()).forEach(function(o){
+      if (opts2.length < 3 && !used2[o.word]){ used2[o.word] = 1; opts2.push(o.word); }
+    });
+    q.options = shuffle(opts2.concat([item.word]));
+    q.answer = item.word;
+  } else if (type === 'blank'){
+    q.blank = blank;
+    q.answer = item.word;
+  } else {
+    var w = item.word.toLowerCase();
+    var letters = shuffle(w.split(''));
+    var guard = 0;
+    while (letters.join('') === w && guard++ < 10) letters = shuffle(w.split(''));
+    q.letters = letters;
+    q.answer = w;
+  }
+  return q;
+}
+
+/* ---------- session ---------- */
+var session = null;
+function buildQueue(deckId){
+  var pool = deckId ? deckIndex[deckId].items : startedItems();
+  var now = Date.now();
+  var due = pool.filter(function(it){ var s = st0(it.id); return s.seen > 0 && s.due <= now; });
+  due.sort(function(a, b){
+    var sa = st0(a.id), sb = st0(b.id);
+    return (sa.box - sb.box) || (sa.due - sb.due);
+  });
+  var q = due.slice(0, SESSION_SIZE);
+  var newbies = [];
+  if (q.length < SESSION_SIZE){
+    newbies = pool.filter(function(it){ return st0(it.id).seen === 0; })
+      .slice(0, Math.min(NEW_CAP, SESSION_SIZE - q.length));
+  }
+  if (q.length + newbies.length < SESSION_SIZE){
+    var chosen = {};
+    q.concat(newbies).forEach(function(it){ chosen[it.id] = 1; });
+    var rest = pool.filter(function(it){ return st0(it.id).seen > 0 && !chosen[it.id]; })
+      .sort(function(a, b){ return st0(a.id).due - st0(b.id).due; });
+    q = q.concat(rest.slice(0, SESSION_SIZE - q.length - newbies.length));
+  }
+  var entries = shuffle(q).map(function(it){ return { item:it, mode:'quiz', retry:false }; });
+  newbies.forEach(function(it, i){
+    entries.splice(Math.min(i * 2, entries.length), 0, { item:it, mode:'learn' });
+  });
+  newbies.forEach(function(it){ entries.push({ item:it, mode:'quiz', retry:false }); });
+  return { entries:entries, total:q.length + newbies.length };
+}
+function startSession(deckId){
+  if (deckId && !state.started[deckId]){ state.started[deckId] = true; saveLocal(); }
+  var built = buildQueue(deckId);
+  if (!built.total){ return; }
+  session = {
+    deckId: deckId || null,
+    queue: built.entries,
+    idx: 0, total: built.total, firstTry: {}, streak: 0, bestStreak: 0,
+    types: {}, missed: {}, done: false
+  };
+  nextQuestion();
+}
+function nextQuestion(){
+  if (session.idx >= session.queue.length){ endSession(); return; }
+  var entry = session.queue[session.idx];
+  if (entry.mode === 'learn'){ session.q = null; session.answered = false; render(); return; }
+  session.q = makeQuestion(entry.item);
+  session.answered = false;
+  session.chosen = -1;
+  render();
+}
+function answer(correct, detail){
+  if (session.answered) return;
+  session.answered = true;
+  var entry = session.queue[session.idx];
+  var item = entry.item;
+  var s = st(item.id);
+  if (!entry.retry){
+    session.firstTry[item.id] = correct;
+    var tk = session.q.type;
+    if (!session.types[tk]) session.types[tk] = [0, 0];
+    session.types[tk][1]++;
+    if (correct) session.types[tk][0]++;
+    s.seen++; s.last = Date.now();
+    if (correct){
+      s.correct++;
+      s.box = Math.min(5, s.box + 1);
+      s.due = startOfDay(Date.now()) + INTERVALS[s.box - 1] * DAY + 8*3600000;
+      if (s.due <= Date.now()) s.due = Date.now() + DAY;
+    } else {
+      s.wrong++;
+      s.box = 1;
+      s.due = Date.now();
+      session.missed[item.id] = 1;
+      session.queue.push({ item:item, mode:'quiz', retry:true });
+    }
+    saveLocal();
+  }
+  if (correct){ session.streak++; session.bestStreak = Math.max(session.bestStreak, session.streak); }
+  else session.streak = 0;
+  session.feedback = { correct: correct, detail: detail || '' };
+  render();
+}
+function endSession(){
+  var ids = Object.keys(session.firstTry);
+  var correct = ids.filter(function(id){ return session.firstTry[id]; }).length;
+  state.sessions.push({
+    t: Date.now(), correct: correct, total: session.total,
+    deck: session.deckId, types: session.types, missed: Object.keys(session.missed)
+  });
+  saveLocal();
+  session.done = true;
+  session.score = { correct: correct, total: session.total };
+  render();
+  if (REMOTE) persist().then(function(r){
+    var n = document.getElementById('save-note');
+    if (n) n.textContent = r.ok ? 'Score synced.' : 'Couldn’t sync right now — the score is saved on this device and will sync later.';
+  });
+  if (session.total && correct / session.total >= 0.9) confetti();
+}
+
+/* ---------- confetti ---------- */
+function confetti(){
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var cv = document.createElement('canvas');
+  cv.id = 'confetti';
+  cv.width = innerWidth; cv.height = innerHeight;
+  document.body.appendChild(cv);
+  var ctx = cv.getContext('2d');
+  var colors = ['#DFA22F', '#6C3FA6', '#D94F30', '#2C9C5A', '#4C6EE1'];
+  var ps = [];
+  for (var i=0; i<90; i++) ps.push({
+    x: cv.width/2 + (Math.random()-0.5)*200, y: cv.height*0.35,
+    vx: (Math.random()-0.5)*9, vy: -Math.random()*9 - 3,
+    s: 5 + Math.random()*6, c: pick(colors), r: Math.random()*Math.PI
+  });
+  var frames = 0;
+  (function tick(){
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ps.forEach(function(p){
+      p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.r += 0.1;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s); ctx.restore();
+    });
+    if (++frames < 110) requestAnimationFrame(tick);
+    else cv.remove();
+  })();
+}
+
+/* ---------- rendering ---------- */
+var root = document.getElementById('root');
+var view = 'home';
+
+function posChip(pos){
+  var cls = /adverb/.test(pos) ? 'pos-adverb' : /verb/.test(pos) ? 'pos-verb' : /adjective/.test(pos) ? 'pos-adjective' : 'pos-noun';
+  return '<span class="chip ' + cls + '">' + esc(pos) + '</span>';
+}
+function levelChip(level){
+  return '<span class="chip lvl-' + level + '">' + LEVELS[level] + '</span>';
+}
+function header(){
+  return '<header class="app"><div class="logo"><span class="mark">E</span> Word Summit</div></header>' +
+    '<nav class="tabs" role="tablist">' +
+    ['home:Practice', 'decks:Decks', 'parent:Parent'].map(function(t){
+      var k = t.split(':');
+      return '<button role="tab" data-view="' + k[0] + '" class="' + (view === k[0] ? 'on' : '') + '">' + k[1] + '</button>';
+    }).join('') + '</nav>';
+}
+function saveBanner(){
+  if (!REMOTE || !dirty) return '';
+  return '<div class="savebanner"><span>New progress isn’t synced to the cloud yet.</span>' +
+    '<button class="btn" data-act="save-now">Sync now</button></div>';
+}
+
+function homeView(){
+  var startedDecks = Object.keys(state.started).filter(function(d){ return state.started[d]; });
+  if (!startedDecks.length){
+    return saveBanner() +
+      '<div class="card home-hero center">' +
+      '<div class="qask">Hi Evia</div>' +
+      '<h1 style="margin:6px 0 4px; font-size:1.9rem;">Welcome to your word summit</h1>' +
+      '<p class="muted" style="margin:0 0 20px;">' + WORDS.length + ' SSAT words are waiting across ' + DECKS.length + ' decks. Pick your first deck to start the climb!</p>' +
+      '<button class="btn primary" data-view="decks">Choose a deck &nbsp;&rarr;</button>' +
+      '</div>';
+  }
+  var d = dueCounts();
+  var seen = WORDS.filter(function(it){ return st0(it.id).seen > 0; }).length;
+  var mastered = WORDS.filter(function(it){ return st0(it.id).seen > 0 && st0(it.id).box >= 4; }).length;
+  var sub = d.today
+    ? d.today + (d.today === 1 ? ' word is' : ' words are') + ' ready for review'
+    : (d.fresh ? 'All reviews done — ' + d.fresh + ' new words are waiting in your decks.' : 'All caught up!');
+  return saveBanner() +
+    '<div class="card home-hero center">' +
+    '<div class="qask">Hi Evia</div>' +
+    '<h1 style="margin:6px 0 4px; font-size:1.9rem;">Ready to climb?</h1>' +
+    '<p class="muted" style="margin:0 0 20px;">' + esc(sub) + '</p>' +
+    '<button class="btn primary" data-act="start">' + (d.today ? 'Start review' : 'Keep climbing') + ' &nbsp;&rarr;</button>' +
+    '</div>' +
+    '<div class="tilerow">' +
+    '<div class="tile"><div class="v">' + d.today + '</div><div class="l">due now</div></div>' +
+    '<div class="tile"><div class="v">' + mastered + '</div><div class="l">mastered</div></div>' +
+    '<div class="tile"><div class="v">' + seen + '</div><div class="l">words learned</div></div>' +
+    '<div class="tile"><div class="v">' + state.sessions.length + '</div><div class="l">rounds</div></div>' +
+    '</div>' +
+    '<p class="explain center">Reviews mix all the decks you’ve started. Words you miss come back sooner; words you know rest longer as they level up.</p>';
+}
+
+function learnView(){
+  var item = session.queue[session.idx].item;
+  var head = progressHead();
+  var blankExample = item.example || '';
+  return head + '<div class="card">' +
+    '<div class="newbadge">&#10024; New word</div>' +
+    '<div class="learncard">' +
+    '<div class="qword">' + esc(item.word) + '</div>' +
+    posChip(item.pos) + ' ' + levelChip(item.level) +
+    '<p class="sentence" style="margin:14px 0 6px;"><b>' + esc(item.meaning) + '</b></p>' +
+    (blankExample ? '<p class="sentence muted" style="margin:0;">&ldquo;' + esc(blankExample) + '&rdquo;</p>' : '') +
+    '</div>' +
+    '<div class="center" style="margin-top:20px;"><button class="btn primary" data-act="next">Got it &rarr;</button></div>' +
+    '</div>' +
+    '<div class="center"><button class="btn small" data-act="quit">Quit practice</button></div>';
+}
+
+function progressHead(){
+  return '<div class="progress"><span class="muted" style="font-variant-numeric:tabular-nums;">' +
+    (session.idx + 1) + ' / ' + session.queue.length + '</span>' +
+    '<div class="pbar"><div style="width:' + Math.round(100 * session.idx / session.queue.length) + '%"></div></div>' +
+    (session.streak >= 2 ? '<span class="streak">&#128293; ' + session.streak + '</span>' : '') + '</div>';
+}
+
+function quizView(){
+  var entry = session.queue[session.idx];
+  if (entry.mode === 'learn') return learnView();
+  var q = session.q, item = q.item;
+  var head = progressHead();
+  var body = '';
+  var tag = entry.retry ? '<div class="qask" style="color:var(--accent-deep)">One more try!</div>'
+          : (q.isNew ? '<div class="newbadge">&#10024; New word check</div>' : '');
+  function optBtn(o, i, extraStyle){
+    var cls = 'opt', dis = '';
+    if (session.answered){
+      dis = ' disabled';
+      if (o === q.answer) cls += ' right';
+      else if (i === session.chosen) cls += ' wrong';
+    }
+    return '<button class="' + cls + '" data-opt="' + i + '"' + dis + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' + esc(o) + '</button>';
+  }
+  if (q.type === 'meaning'){
+    body = tag + '<div class="qask">What does it mean?</div><div class="qword">' + esc(item.word) + '</div>' + posChip(item.pos) +
+      '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i); }).join('') + '</div>';
+  } else if (q.type === 'wordpick'){
+    body = tag + '<div class="qask">Which word means&hellip;</div>' +
+      '<p class="sentence" style="font-weight:700;">&ldquo;' + esc(item.meaning) + '&rdquo;</p>' + posChip(item.pos) +
+      '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i, 'font-family:Outfit,sans-serif;font-size:1.05rem;'); }).join('') + '</div>';
+  } else if (q.type === 'blank'){
+    body = tag + '<div class="qask">Finish the sentence</div>' +
+      '<p class="sentence">' + esc(q.blank.before) + ' <span class="blank">&nbsp;?&nbsp;</span>' + esc(q.blank.after) + '</p>' +
+      '<p class="explain">Hint: ' + esc(item.meaning) + '</p>' +
+      '<div class="typebox"><input id="typed" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Type the word">' +
+      '<button class="btn primary" data-act="submit-typed">Check</button></div>';
+  } else {
+    body = tag + '<div class="qask">Unscramble the word</div>' +
+      '<p class="explain" style="margin:8px 0 0;">' + posChip(item.pos) + ' &nbsp;' + esc(item.meaning) + '</p>' +
+      '<div class="slots" id="slots"></div>' +
+      '<div class="tiles" id="tiles"></div>' +
+      '<div style="margin-top:14px;"><button class="btn" data-act="scr-undo">&larr; Undo</button></div>';
+  }
+
+  var fb = '';
+  if (session.feedback && session.answered){
+    var f = session.feedback;
+    fb = '<div class="fb ' + (f.correct ? 'good' : 'bad') + '">' +
+      (f.correct ? pick(['Nice one!', 'You got it!', 'Correct!', 'Onward and upward!']) : 'Not quite &mdash; the answer is “' + esc(q.answer) + '”') +
+      (f.detail ? '<div class="note">' + f.detail + '</div>' : '') +
+      (!f.correct && !entry.retry ? '<div class="note">You’ll see this one again before the end.</div>' : '') +
+      '</div><div class="center" style="margin-top:16px;"><button class="btn primary" data-act="next">' +
+      (session.idx + 1 >= session.queue.length ? 'Finish' : 'Next') + ' &rarr;</button></div>';
+  }
+  return head + '<div class="card">' + body + fb + '</div>' +
+    '<div class="center"><button class="btn small" data-act="quit">Quit practice</button></div>';
+}
+
+function endView(){
+  var sc = session.score;
+  var pct = sc.total ? sc.correct / sc.total : 0;
+  var stars = pct >= 0.9 ? 3 : pct >= 0.7 ? 2 : pct >= 0.5 ? 1 : 0;
+  var starHtml = '<div class="stars">' +
+    [0,1,2].map(function(i){ return '<span class="' + (i < stars ? '' : 'off') + '">&#9733;</span>'; }).join('') + '</div>';
+  var missedIds = Object.keys(session.missed);
+  var missedHtml = '';
+  if (missedIds.length){
+    missedHtml = '<div class="card"><h3 style="margin:0 0 4px;">Words to watch</h3><ul class="tricky">' +
+      missedIds.map(function(id){
+        var it = WORDS.filter(function(x){ return x.id === id; })[0];
+        return it ? '<li><b>' + esc(it.word) + '</b> &mdash; ' + esc(it.meaning) + '</li>' : '';
+      }).join('') + '</ul></div>';
+  }
+  var praise = pct >= 0.9 ? 'Peak performance!' : pct >= 0.7 ? 'Great climbing!' : pct >= 0.5 ? 'Good practice!' : 'Tough stretch — those words will come back soon!';
+  return '<div class="card center home-hero">' + starHtml +
+    '<h1 style="margin:8px 0 4px;">' + praise + '</h1>' +
+    '<div class="big-num">' + sc.correct + '<span class="muted" style="font-size:1.4rem;"> / ' + sc.total + '</span></div>' +
+    (session.bestStreak >= 3 ? '<p class="streak" style="margin:8px 0 0;">&#128293; Best streak: ' + session.bestStreak + '</p>' : '') +
+    '<div style="margin-top:22px;"><button class="btn primary" data-act="finish">Done</button></div>' +
+    '<p class="explain" id="save-note" style="margin-bottom:0;">' +
+    (REMOTE ? (dirty ? 'Syncing your score…' : 'Score synced.') : 'Score saved on this device.') + '</p>' +
+    '</div>' + missedHtml;
+}
+
+function decksView(){
+  var html = saveBanner();
+  [1, 2, 3].forEach(function(level){
+    var decks = DECKS.filter(function(d){ return d.level === level; });
+    if (!decks.length) return;
+    var levelWords = decks.reduce(function(n, d){ return n + d.items.length; }, 0);
+    html += '<div class="card"><h2 style="margin:0 0 2px;">' + LEVELS[level] + '</h2>' +
+      '<p class="explain" style="margin:2px 0 8px;">' + decks.length + (decks.length === 1 ? ' deck' : ' decks') + ' &middot; ' + levelWords + ' words</p>' +
+      decks.map(function(d){
+        var seen = 0, mastered = 0, c = 0, w = 0;
+        d.items.forEach(function(it){
+          var s = st0(it.id);
+          if (s.seen > 0){ seen++; c += s.correct; w += s.wrong; }
+          if (s.seen > 0 && s.box >= 4) mastered++;
+        });
+        var num = parseInt(d.id.split('-')[1], 10);
+        var started = !!state.started[d.id];
+        var a = (c + w) ? Math.round(100 * c / (c + w)) : null;
+        return '<div class="deckrow"><div class="info">' +
+          '<b style="font-family:Outfit,sans-serif;">Deck ' + num + '</b> ' +
+          (started ? '<span class="explain">' + seen + '/' + d.items.length + ' seen &middot; ' + mastered + ' mastered' +
+            (a !== null ? ' &middot; ' + a + '% right' : '') + '</span>' : '<span class="explain">not started</span>') +
+          '<div class="pbar' + (mastered === d.items.length ? ' gold' : '') + '"><div style="width:' + Math.round(100 * seen / d.items.length) + '%"></div></div>' +
+          '</div>' +
+          '<button class="btn small' + (started ? '' : ' primary') + '" data-deck="' + d.id + '">' + (started ? 'Practice' : 'Start') + '</button>' +
+          '</div>';
+      }).join('') + '</div>';
+  });
+  return html;
+}
+
+function parentView(){
+  var d = dueCounts();
+  var seenRows = WORDS.map(function(it){ return { it:it, s:st0(it.id) }; })
+    .filter(function(r){ return r.s.seen > 0; })
+    .map(function(r){ return { it:r.it, s:r.s, a:acc(r.s) }; });
+  var mastered = seenRows.filter(function(r){ return r.s.box >= 4; });
+  var struggling = seenRows.filter(function(r){ return r.s.seen >= 2 && r.a !== null && r.a < 0.6; });
+  var sorted = seenRows.slice().sort(function(x, y){
+    var ax = x.a === null ? 1.01 : x.a, ay = y.a === null ? 1.01 : y.a;
+    return (x.s.box - y.s.box) || (ax - ay) || (x.it.word < y.it.word ? -1 : 1);
+  });
+  function accPill(a){
+    if (a === null) return '<span class="muted">—</span>';
+    var p = Math.round(a * 100);
+    var cls = p >= 80 ? 'acc-hi' : p >= 60 ? 'acc-mid' : 'acc-lo';
+    return '<span class="acc-pill ' + cls + '">' + p + '%</span>';
+  }
+  var focus = sorted.filter(function(r){ return r.a === null || r.a < 0.8 || r.s.box <= 2; }).slice(0, 5);
+  var typeNames = { meaning:'Pick the meaning', wordpick:'Pick the word', blank:'Fill in the sentence', scramble:'Unscramble' };
+  var typeAgg = {};
+  state.sessions.forEach(function(ss){
+    Object.keys(ss.types || {}).forEach(function(k){
+      if (!typeAgg[k]) typeAgg[k] = [0, 0];
+      typeAgg[k][0] += ss.types[k][0]; typeAgg[k][1] += ss.types[k][1];
+    });
+  });
+  var typeHtml = Object.keys(typeAgg).length ?
+    '<div class="card"><h3 style="margin:0 0 10px;">Accuracy by question type</h3>' +
+    Object.keys(typeAgg).map(function(k){
+      var t = typeAgg[k]; var p = t[1] ? Math.round(100 * t[0] / t[1]) : 0;
+      return '<div style="display:flex;align-items:center;gap:10px;margin:7px 0;">' +
+        '<span style="width:170px;font-size:.88rem;">' + (typeNames[k] || k) + '</span>' +
+        '<div class="pbar" style="flex:1;"><div style="width:' + p + '%"></div></div>' +
+        '<span style="width:88px;text-align:right;font-variant-numeric:tabular-nums;font-size:.88rem;">' + p + '% <span class="muted">(' + t[1] + ')</span></span></div>';
+    }).join('') + '</div>' : '';
+
+  var deckTable = '<div class="card"><h3 style="margin:0 0 8px;">Decks</h3><div class="tblwrap"><table><thead><tr>' +
+    '<th>Deck</th><th>Seen</th><th>Mastered</th><th>Accuracy</th></tr></thead><tbody>' +
+    DECKS.map(function(dk){
+      var seen = 0, mst = 0, c = 0, w = 0;
+      dk.items.forEach(function(it){
+        var s = st0(it.id);
+        if (s.seen > 0){ seen++; c += s.correct; w += s.wrong; if (s.box >= 4) mst++; }
+      });
+      if (!state.started[dk.id] && !seen) return '';
+      var num = parseInt(dk.id.split('-')[1], 10);
+      return '<tr><td>' + LEVELS[dk.level] + ' ' + num + '</td>' +
+        '<td>' + seen + '/' + dk.items.length + '</td><td>' + mst + '</td>' +
+        '<td>' + accPill((c + w) ? c / (c + w) : null) + '</td></tr>';
+    }).join('') + '</tbody></table></div>' +
+    '<p class="explain" style="margin-bottom:0;">Decks Evia hasn’t started aren’t listed yet.</p></div>';
+
+  var sessionsHtml = state.sessions.length ?
+    '<div class="card"><h3 style="margin:0 0 8px;">Practice history</h3>' +
+    state.sessions.slice().reverse().slice(0, 15).map(function(ss){
+      var deckLabel = 'Review';
+      if (ss.deck && deckIndex[ss.deck]){
+        deckLabel = LEVELS[deckIndex[ss.deck].level] + ' ' + parseInt(ss.deck.split('-')[1], 10);
+      }
+      return '<div class="wordrow"><span>' + new Date(ss.t).toLocaleDateString(undefined, { month:'short', day:'numeric' }) +
+        ' <span class="muted">' + deckLabel + '</span></span>' +
+        '<span>' + ss.correct + '/' + ss.total + ' ' + accPill(ss.total ? ss.correct / ss.total : null) + '</span></div>';
+    }).join('') + '</div>' : '<div class="card explain">No practice rounds yet — the history will appear here.</div>';
+
+  var wordTable = seenRows.length ?
+    '<div class="card"><h3 style="margin:0 0 8px;">Every practiced word</h3><div class="tblwrap"><table><thead><tr>' +
+    '<th>Word</th><th>Deck</th><th>Level</th><th>Accuracy</th><th>Last</th><th>Next due</th></tr></thead><tbody>' +
+    sorted.map(function(r){
+      var dots = '';
+      for (var i=1; i<=5; i++) dots += '<span class="' + (i <= r.s.box ? 'on' : 'offd') + '">&#9679;</span>';
+      var num = parseInt(r.it.deck.split('-')[1], 10);
+      return '<tr><td><b>' + esc(r.it.word) + '</b><div class="explain" style="font-size:.78rem;">' + esc(r.it.meaning.slice(0, 42)) + (r.it.meaning.length > 42 ? '…' : '') + '</div></td>' +
+        '<td>' + LEVELS[r.it.level].slice(0, 3) + ' ' + num + '</td>' +
+        '<td><span class="dots">' + dots + '</span></td>' +
+        '<td>' + accPill(r.a) + '</td>' +
+        '<td>' + relTime(r.s.last) + '</td>' +
+        '<td>' + dueLabel(r.s.due) + '</td></tr>';
+    }).join('') + '</tbody></table></div></div>' : '';
+
+  return saveBanner() +
+    '<div class="tilerow">' +
+    '<div class="tile"><div class="v">' + seenRows.length + '<span class="muted" style="font-size:1rem;">/' + WORDS.length + '</span></div><div class="l">words learned</div></div>' +
+    '<div class="tile"><div class="v">' + d.today + '</div><div class="l">due now</div></div>' +
+    '<div class="tile"><div class="v">' + mastered.length + '</div><div class="l">mastered (level 4+)</div></div>' +
+    '<div class="tile"><div class="v">' + struggling.length + '</div><div class="l">struggling (&lt;60%)</div></div>' +
+    '</div>' +
+    (focus.length ? '<div class="card"><h3 style="margin:0 0 4px;">Needs the most practice</h3><ul class="tricky">' +
+      focus.map(function(r){
+        return '<li><b>' + esc(r.it.word) + '</b> ' + accPill(r.a) + ' <span class="muted">level ' + r.s.box + ' &middot; ' + esc(r.it.meaning) + '</span></li>';
+      }).join('') + '</ul></div>' : '') +
+    deckTable + typeHtml + wordTable + sessionsHtml +
+    '<p class="explain">How it works: new words are introduced a few per round with a preview card, then quizzed. Every word starts at level 1; each right answer moves it up a level with a longer rest (1, 3, 7, then 14 days), and a miss sends it back to level 1. ' +
+    (REMOTE ? 'Scores sync to the cloud, so any device with this link shows the same progress.' : 'Scores are stored on this device.') + '</p>';
+}
+
+function render(){
+  var html = header();
+  if (view === 'home'){
+    if (session && !session.done) html += quizView();
+    else if (session && session.done) html += endView();
+    else html += homeView();
+  } else if (view === 'decks') html += decksView();
+  else html += parentView();
+  root.innerHTML = html;
+  if (session && !session.done && session.q && session.q.type === 'scramble' && !session.answered) renderScramble();
+  var inp = document.getElementById('typed');
+  if (inp && !session.answered){
+    inp.focus();
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') submitTyped(); });
+  }
+}
+
+/* scramble state */
+var scr = { picked: [] };
+function renderScramble(){
+  var q = session.q;
+  if (!scr.q || scr.q !== q){ scr = { q:q, picked: [] }; }
+  var slots = document.getElementById('slots'), tiles = document.getElementById('tiles');
+  if (!slots) return;
+  var word = q.answer;
+  slots.innerHTML = '';
+  for (var i=0; i<word.length; i++){
+    var d = document.createElement('div');
+    d.className = 'slot' + (i < scr.picked.length ? ' filled' : '');
+    d.textContent = i < scr.picked.length ? q.letters[scr.picked[i]] : '';
+    slots.appendChild(d);
+  }
+  tiles.innerHTML = '';
+  q.letters.forEach(function(ch, i){
+    var b = document.createElement('button');
+    b.className = 'tile-btn';
+    b.textContent = ch;
+    b.disabled = scr.picked.indexOf(i) >= 0;
+    b.addEventListener('click', function(){
+      if (session.answered) return;
+      scr.picked.push(i);
+      if (scr.picked.length === word.length){
+        var built = scr.picked.map(function(j){ return q.letters[j]; }).join('');
+        var ok = built === word;
+        renderScramble();
+        setTimeout(function(){ answer(ok, ok ? '' : 'You built “' + esc(built) + '”'); }, 250);
+      } else renderScramble();
+    });
+    tiles.appendChild(b);
+  });
+}
+
+function submitTyped(){
+  if (session.answered) return;
+  var inp = document.getElementById('typed');
+  if (!inp || !inp.value.trim()) return;
+  var res = checkTyped(inp.value, session.q.answer);
+  if (res.ok && !res.exact) answer(true, 'So close on spelling — it’s written “' + esc(session.q.answer) + '”');
+  else if (res.ok) answer(true, '');
+  else answer(false, 'You wrote “' + esc(inp.value.trim()) + '”');
+}
+
+root.addEventListener('click', function(e){
+  var t = e.target.closest('button');
+  if (!t) return;
+  if (t.dataset.view){
+    if (session && !session.done && !confirm('Leave this practice round?')) return;
+    if (session && !session.done) session = null;
+    view = t.dataset.view; render(); return;
+  }
+  if (t.dataset.deck){ view = 'home'; startSession(t.dataset.deck); return; }
+  var act = t.dataset.act;
+  if (act === 'start'){ startSession(null); return; }
+  if (act === 'quit'){ if (confirm('Quit this round? Answered words still count.')) { session = null; render(); } return; }
+  if (act === 'next'){ session.idx++; session.feedback = null; nextQuestion(); return; }
+  if (act === 'finish'){ session = null; render(); return; }
+  if (act === 'submit-typed'){ submitTyped(); return; }
+  if (act === 'scr-undo'){ if (!session.answered && scr.picked.length){ scr.picked.pop(); renderScramble(); } return; }
+  if (act === 'save-now'){
+    t.disabled = true; t.textContent = 'Syncing…';
+    persist().then(function(r){
+      if (r.ok) render();
+      else { t.disabled = false; t.textContent = 'Try again'; }
+    });
+    return;
+  }
+  if (t.dataset.opt !== undefined && session && !session.answered){
+    var q = session.q;
+    session.chosen = Number(t.dataset.opt);
+    answer(q.options[session.chosen] === q.answer, '');
+  }
+});
+
+render();
+if (REMOTE){
+  remoteLoad().then(function(remote){
+    var changed = mergeRemote(remote);
+    if (changed){ saveLocal(); if (!session) render(); }
+    if (dirty) persist().then(function(){ if (!session) render(); });
+  }).catch(function(){});
+}
+})();
+</script>
+</body>
+</html>
