@@ -51,11 +51,13 @@ const SCHEMA = {
             description:
               "The question text. For cloze, the sentence with exactly one ___ blank. For meaning/syn/ant, may be an empty string since the app supplies the framing.",
           },
+          // Structured-output schemas reject array size constraints, so the
+          // count is stated in the description and enforced client-side.
           options: {
             type: "array",
-            minItems: 3,
-            maxItems: 4,
             items: { type: "string" },
+            description:
+              "Exactly 4 options for meaning/wordpick/syn/ant/cloze/analogy, or exactly 3 for scen. Include the correct answer among them.",
           },
           answer: {
             type: "string",
@@ -212,7 +214,9 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError) return json({ error: "bad_key" }, 502);
     if (err instanceof Anthropic.RateLimitError) return json({ error: "rate_limited" }, 429);
-    if (err instanceof Anthropic.APIError) return json({ error: "api_error", status: err.status }, 502);
-    return json({ error: "unexpected" }, 500);
+    if (err instanceof Anthropic.APIError) {
+      return json({ error: "api_error", status: err.status, detail: err.message }, 502);
+    }
+    return json({ error: "unexpected", detail: String(err && (err as Error).message || err) }, 500);
   }
 });
