@@ -63,6 +63,17 @@ var QGEN = (function () {
     }
     if (q.type === "wordpick" && answer.toLowerCase() !== word) return null;
 
+    // Per-option explanations, keyed by option text so the app can explain the
+    // exact wrong answer the student picked. Missing entries are tolerated —
+    // the feedback just falls back to the general note for those options.
+    var why = {};
+    (q.distractors || []).forEach(function (d) {
+      if (!d) return;
+      var opt = String(d.option || "").trim();
+      var text = String(d.why || "").trim();
+      if (opt && text && opt !== answer && opts.indexOf(opt) >= 0) why[opt] = text;
+    });
+
     return {
       item: item,
       type: q.type,
@@ -70,6 +81,7 @@ var QGEN = (function () {
       options: opts,
       answer: answer,
       teach: String(q.teach || "").trim(),
+      why: why,
       generated: true
     };
   }

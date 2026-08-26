@@ -346,7 +346,7 @@ function makeQuestion(item, entry){
     var g = session.gen[item.id];
     QCACHE.consume(item.id);   // asked now, so the next review gets a new one
     return { item:item, type:g.type, prompt:g.prompt, options: shuffle(g.options.slice()),
-             answer:g.answer, teach:g.teach, isNew:isNew, generated:true };
+             answer:g.answer, teach:g.teach, why:g.why || {}, isNew:isNew, generated:true };
   }
   var types = ['meaning', 'wordpick'];
   var blank = !isNew && findBlank(item);
@@ -673,6 +673,16 @@ function progressHead(){
     (session.streak >= 2 ? '<span class="streak">&#128293; ' + session.streak + '</span>' : '') + '</div>';
 }
 
+/* After a wrong multiple-choice answer, say why the option she actually picked
+   was wrong — not just why the right one was right. */
+function wrongPickNote(q){
+  if (!q.why || session.chosen == null || session.chosen < 0) return '';
+  var picked = q.options[session.chosen];
+  var why = picked && q.why[picked];
+  if (!why) return '';
+  return '<div class="note">You picked <b>' + esc(picked) + '</b> &mdash; ' + esc(why) + '</div>';
+}
+
 function quizView(){
   var entry = session.queue[session.idx];
   if (entry.mode === 'learn') return learnView();
@@ -739,6 +749,7 @@ function quizView(){
     fb = '<div class="fb ' + (f.correct ? 'good' : 'bad') + '">' +
       (f.correct ? pick(['Nice one!', 'You got it!', 'Correct!', 'Onward and upward!']) : 'Not quite &mdash; the answer is “' + esc(q.answer) + '”') +
       (f.detail ? '<div class="note">' + f.detail + '</div>' : '') +
+      (!f.correct ? wrongPickNote(q) : '') +
       (!f.correct && q.type !== 'meaning' && q.type !== 'blank' && q.type !== 'scramble'
         ? '<div class="note">Remember: <b>' + esc(item.word) + '</b> means ' + esc(item.meaning) +
           (q.teach ? '<br>' + esc(q.teach) : (item.tip ? '<br>' + esc(item.tip) : '')) + '</div>' : '') +

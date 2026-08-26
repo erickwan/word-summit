@@ -42,7 +42,7 @@ const SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["wordId", "type", "prompt", "options", "answer", "teach"],
+        required: ["wordId", "type", "prompt", "options", "answer", "teach", "distractors"],
         properties: {
           wordId: { type: "string", description: "the id of the word this question tests" },
           type: { type: "string", enum: QUESTION_TYPES },
@@ -66,7 +66,28 @@ const SCHEMA = {
           teach: {
             type: "string",
             description:
-              "One short sentence shown if the student answers wrong: what the word really means or how to tell it apart from the tempting wrong answer.",
+              "One short sentence shown if the student answers wrong: why the correct answer is the one that fits.",
+          },
+          distractors: {
+            type: "array",
+            description:
+              "One entry for EVERY option that is not the answer. Used to tell the student why the specific option they picked was wrong.",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["option", "why"],
+              properties: {
+                option: {
+                  type: "string",
+                  description: "character-for-character identical to one of the wrong options",
+                },
+                why: {
+                  type: "string",
+                  description:
+                    "One sentence naming what this word actually means and why that does not fit here.",
+                },
+              },
+            },
           },
         },
       },
@@ -102,7 +123,12 @@ Bias toward the types that test USE and understanding (cloze, scen, analogy, syn
 
 Every question must be original. Do not copy sentences from the input. Write at a reading level the student can handle, keeping the difficulty in the vocabulary being tested rather than in the surrounding words.
 
-The "teach" field is shown only after a wrong answer. Make it one useful sentence that corrects the most likely misunderstanding, not a restatement of the definition.
+FEEDBACK. Two fields are shown only after a wrong answer, and together they are the most valuable teaching in the app:
+
+- "teach": one sentence on why the correct answer is the one that fits. Not a restatement of the definition.
+- "distractors": one entry for EVERY option that is not the answer, so that whichever wrong option the student picked, the app can tell her why that particular word was wrong. Each "why" names what that word actually means and why it does not work here — for example, for a blank about a rumor spreading panic, the entry for "alleviate" would say that alleviate means to ease or lessen something, which is the opposite of what a spreading rumor does. Address the student's likely reasoning: if a wrong option is a sound-alike, say so; if it is the opposite, say so; if it is close but describes a different situation, say what that situation would be. Keep each to one sentence and never simply repeat the correct answer's meaning.
+
+Every wrong option must have a distractors entry, and the "option" text must match that option exactly.
 
 Use plain ASCII quotes and apostrophes throughout.`;
 }
