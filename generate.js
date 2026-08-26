@@ -5,7 +5,7 @@
 var QGEN = (function () {
   "use strict";
 
-  var TIMEOUT_MS = 45000;
+  var TIMEOUT_MS = 90000;
   var KNOWN_TYPES = { meaning:1, wordpick:1, syn:1, ant:1, cloze:1, scen:1, analogy:1, oddone:1 };
 
   function lev(a, b) {
@@ -86,10 +86,38 @@ var QGEN = (function () {
     };
   }
 
+
+  // The service caps how many words one request may carry, and a long request is
+  // slow. Rounds are therefore split into chunks generated in parallel, so a
+  // 20-word round costs about the same wall-clock time as a 10-word one. A chunk
+  // that fails only costs its own words, which fall back to local questions.
+  var CHUNK = 5;
+
+  function generate(config, words, profile) {
+    if (!config || !config.url || !config.key || !words.length) {
+      return Promise.resolve({ ok: false, why: "not_configured", questions: {} });
+    }
+    var chunks = [];
+    for (var i = 0; i < words.length; i += CHUNK) chunks.push(words.slice(i, i + CHUNK));
+
+    return Promise.all(chunks.map(function (c) { return generateBatch(config, c, profile); }))
+      .then(function (results) {
+        var questions = {}, kept = 0, dropped = 0, why = null;
+        results.forEach(function (r) {
+          Object.keys(r.questions || {}).forEach(function (id) { questions[id] = r.questions[id]; });
+          kept += r.kept || 0;
+          dropped += r.dropped || 0;
+          if (!r.ok && !why) why = r.why;
+        });
+        return { ok: kept > 0, why: kept ? null : (why || "all_invalid"),
+                 questions: questions, kept: kept, dropped: dropped, chunks: chunks.length };
+      });
+  }
+
   // words: [{id, word, pos, meaning, example, level, history}]
   // Resolves to a map of wordId -> validated question. Never rejects; on any
   // failure it resolves to an empty map and the caller falls back.
-  function generate(config, words, profile) {
+  function generateBatch(config, words, profile) {
     if (!config || !config.url || !config.key || !words.length) {
       return Promise.resolve({ ok: false, why: "not_configured", questions: {} });
     }

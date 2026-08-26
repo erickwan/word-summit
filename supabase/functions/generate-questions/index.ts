@@ -13,7 +13,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const MODEL = "claude-opus-5";
 const MAX_WORDS_PER_CALL = 12;
-const DAILY_GENERATION_CAP = 80; // hard ceiling on spend; ~$7/day worst case
+const DAILY_GENERATION_CAP = 160; // hard ceiling on spend; a round is now ~2 chunked calls
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -206,10 +206,11 @@ Deno.serve(async (req: Request) => {
       model: MODEL,
       max_tokens: 16000,
       output_config: {
-        effort: "high",
+        effort: "medium",
         format: { type: "json_schema", schema: SCHEMA },
       },
-      system: systemPrompt(profile),
+      system: [{ type: "text", text: systemPrompt(profile),
+                 cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userPrompt(words) }],
     });
 
