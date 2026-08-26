@@ -166,6 +166,50 @@ ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 .grouphdr:first-of-type{border-top:0; padding-top:0; margin-top:4px;}
 .grouphdr h3{margin:0; font-size:1rem;}
 .grouphdr .n{color:var(--muted); font-size:.85rem;}
+/* --- Totoro end-of-round scene --- */
+.totoro-scene{position:relative; display:flex; justify-content:center; margin:4px 0 2px; min-height:190px;}
+.totoro{width:210px; height:auto; overflow:visible;}
+.tt-body{transform-origin:110px 200px;}
+.tt-arm{transform-origin:150px 120px;}
+@keyframes tt-bounce{
+  0%,100%{transform:translateY(0) scaleY(1);}
+  18%{transform:translateY(6px) scaleY(.94);}
+  40%{transform:translateY(-12px) scaleY(1.05);}
+  62%{transform:translateY(3px) scaleY(.97);}
+  80%{transform:translateY(-4px) scaleY(1.01);}
+}
+@keyframes tt-nod{
+  0%,100%{transform:rotate(0deg);}
+  30%{transform:rotate(-5deg);}
+  60%{transform:rotate(4deg);}
+}
+@keyframes tt-sway{
+  0%,100%{transform:rotate(-3deg);}
+  50%{transform:rotate(3deg);}
+}
+@keyframes tt-tilt{
+  0%{transform:rotate(0deg);}
+  100%{transform:rotate(-14deg);}
+}
+@keyframes tt-pop{ from{opacity:0; transform:scale(.7) translateY(10px);} to{opacity:1; transform:none;} }
+.tt-roar .tt-body{animation:tt-bounce 1s cubic-bezier(.3,1.4,.5,1) .15s 2;}
+.tt-happy .tt-body{animation:tt-nod .9s ease-in-out .15s 2;}
+.tt-gentle .tt-body{animation:tt-sway 2.4s ease-in-out .1s 2;}
+.tt-offer .tt-arm{animation:tt-tilt .9s ease-out .3s forwards;}
+.totoro-scene canvas{position:absolute; inset:-10px 0 0 0; width:100%; height:calc(100% + 10px); pointer-events:none;}
+.acorn-earned{display:inline-flex; align-items:center; gap:6px; font-family:Outfit,sans-serif; font-weight:700;
+  color:var(--accent-deep); background:rgba(223,162,47,.16); border-radius:999px; padding:4px 14px; margin-top:2px;
+  animation:tt-pop .5s ease-out .8s both;}
+:root[data-theme="dark"] .acorn-earned{color:var(--accent);}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .acorn-earned{color:var(--accent);}}
+/* --- acorn jar on the home screen --- */
+.jar-card{display:flex; align-items:center; gap:16px;}
+.jar-card .jar{flex:0 0 auto;}
+.jar-card .info{flex:1; min-width:0;}
+.jar-fill{transition:height .6s ease, y .6s ease;}
+@media (prefers-reduced-motion: reduce){
+  .tt-roar .tt-body,.tt-happy .tt-body,.tt-gentle .tt-body,.tt-offer .tt-arm{animation:none;}
+}
 #confetti{position:fixed; inset:0; pointer-events:none;}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
 @media (max-width:480px){
@@ -210,7 +254,7 @@ WORDS.forEach(function(w){
   deckIndex[w.deck].items.push(w);
 });
 
-var state = { savedAt:0, sessions:[], stats:{}, started:{} };
+var state = { savedAt:0, sessions:[], stats:{}, started:{}, acorns:0 };
 var dirty = false;
 try {
   var raw = localStorage.getItem(LS_KEY);
@@ -220,6 +264,7 @@ try {
   }
 } catch (e) {}
 if (!state.started) state.started = {};
+if (typeof state.acorns !== 'number') state.acorns = 0;
 
 function saveLocal(){
   try { state.savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
@@ -261,6 +306,9 @@ function mergeRemote(remote){
   Object.keys(remote.started || {}).forEach(function(d){
     if (!state.started[d]){ state.started[d] = true; changed = true; }
   });
+  if (typeof remote.acorns === 'number' && remote.acorns > (state.acorns || 0)){
+    state.acorns = remote.acorns; changed = true;
+  }
   return changed;
 }
 async function persist(){
@@ -583,6 +631,9 @@ function endSession(){
   saveLocal();
   session.done = true;
   session.score = { correct: correct, total: session.total };
+  session.earned = correct;
+  state.acorns = (state.acorns || 0) + correct;
+  saveLocal();
   render();
   setTimeout(function(){ if (!prepared) prepared = prepareRound(null); }, 1500);
   if (REMOTE) persist().then(function(r){
@@ -590,6 +641,184 @@ function endSession(){
     if (n) n.textContent = r.ok ? 'Score synced.' : 'Couldn’t sync right now — the score is saved on this device and will sync later.';
   });
   if (session.total && correct / session.total >= 0.9) confetti();
+}
+
+
+
+function acornIcon(size){
+  var h = size, w = size * 0.82;
+  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 20 24" aria-hidden="true" style="vertical-align:-2px;">' +
+    '<ellipse cx="10" cy="15" rx="7.5" ry="8" fill="#b9803f"/>' +
+    '<ellipse cx="10" cy="7.5" rx="8.5" ry="4.5" fill="#6f4f2a"/>' +
+    '<path d="M10 3.2 V1" stroke="#6f4f2a" stroke-width="2" stroke-linecap="round"/></svg>';
+}
+
+/* Acorns collected across every round, with a tree that grows at milestones. */
+var JAR_MILESTONES = [25, 50, 100, 200, 400];
+function jarCard(){
+  var n = state.acorns || 0;
+  var next = null;
+  for (var i = 0; i < JAR_MILESTONES.length; i++){
+    if (n < JAR_MILESTONES[i]){ next = JAR_MILESTONES[i]; break; }
+  }
+  var reached = JAR_MILESTONES.filter(function(m){ return n >= m; }).length;
+  var prev = reached ? JAR_MILESTONES[reached - 1] : 0;
+  var pct = next ? Math.min(1, (n - prev) / (next - prev)) : 1;
+  var fillH = Math.round(52 * pct);
+
+  // a little tree that gains a tier at every milestone reached
+  var treeH = 16 + reached * 9;
+  var tree = '<svg width="54" height="86" viewBox="0 0 54 86" aria-hidden="true">' +
+    '<path d="M27 84 V' + (74 - treeH * 0.45) + '" stroke="#7c6a4f" stroke-width="5" stroke-linecap="round"/>' +
+    (reached
+      ? '<ellipse cx="27" cy="' + (66 - treeH * 0.7) + '" rx="' + (11 + reached * 3.2) + '" ry="' + (9 + reached * 2.6) + '" fill="#5c9e5a"/>' +
+        '<ellipse cx="' + (16 - reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#6db06a"/>' +
+        '<ellipse cx="' + (38 + reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#4f8f4e"/>'
+      : '<path d="M27 70 q-9 -6 -12 -14 q11 1 12 9" fill="#6db06a"/>') +
+    '</svg>';
+
+  var jar = '<svg width="66" height="86" viewBox="0 0 66 86" aria-hidden="true">' +
+    '<rect x="20" y="4" width="26" height="7" rx="3" fill="#b9a06f"/>' +
+    '<path d="M14 14 h38 a6 6 0 0 1 6 6 v52 a8 8 0 0 1 -8 8 h-34 a8 8 0 0 1 -8 -8 v-52 a6 6 0 0 1 6 -6 z" fill="rgba(255,255,255,.10)" stroke="var(--line)" stroke-width="3"/>' +
+    '<clipPath id="jarclip"><path d="M14 14 h38 a6 6 0 0 1 6 6 v52 a8 8 0 0 1 -8 8 h-34 a8 8 0 0 1 -8 -8 v-52 a6 6 0 0 1 6 -6 z"/></clipPath>' +
+    '<g clip-path="url(#jarclip)">' +
+      '<rect class="jar-fill" x="8" y="' + (78 - fillH) + '" width="50" height="' + fillH + '" fill="#d9a44e" opacity=".85"/>' +
+    '</g></svg>';
+
+  return '<div class="card jar-card">' +
+    '<div class="jar">' + jar + '</div>' +
+    '<div class="info"><h3 style="margin:0 0 2px;">Acorn jar</h3>' +
+      '<div style="font-family:Outfit,sans-serif;font-weight:700;font-size:1.35rem;">' + n + ' <span class="muted" style="font-size:.95rem;font-weight:400;">collected</span></div>' +
+      '<p class="explain" style="margin:4px 0 0;">' +
+        (next ? (next - n) + ' more until the tree grows again.' : 'Your tree is fully grown. Keep going!') +
+      '</p></div>' +
+    '<div class="jar">' + tree + '</div>' +
+    '</div>';
+}
+
+/* ---------- Totoro end-of-round scene ---------- */
+function moodFor(pct){
+  if (pct >= 0.999) return 'roar';
+  if (pct >= 0.7)   return 'happy';
+  if (pct >= 0.4)   return 'gentle';
+  return 'offer';
+}
+
+function totoroSvg(mood){
+  // mouth + eyes change with how the round went
+  var mouth, eyes, brows = '';
+  if (mood === 'roar'){
+    mouth = '<path d="M88 106 Q110 148 132 106 Q110 116 88 106 Z" fill="#463a33"/>' +
+            '<path d="M100 124 Q110 136 120 124 Q110 128 100 124 Z" fill="#d98f8f"/>';
+    eyes  = '<circle cx="89" cy="84" r="13" fill="#fff"/><circle cx="131" cy="84" r="13" fill="#fff"/>' +
+            '<circle cx="90" cy="85" r="6.5" fill="#2b2723"/><circle cx="130" cy="85" r="6.5" fill="#2b2723"/>' +
+            '<circle cx="92.5" cy="82" r="2.2" fill="#fff"/><circle cx="132.5" cy="82" r="2.2" fill="#fff"/>';
+  } else if (mood === 'happy'){
+    mouth = '<path d="M94 106 Q102 118 110 106 Q118 118 126 106" stroke="#463a33" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+    eyes  = '<circle cx="89" cy="84" r="12" fill="#fff"/><circle cx="131" cy="84" r="12" fill="#fff"/>' +
+            '<circle cx="90" cy="86" r="6" fill="#2b2723"/><circle cx="130" cy="86" r="6" fill="#2b2723"/>' +
+            '<circle cx="92" cy="83" r="2" fill="#fff"/><circle cx="132" cy="83" r="2" fill="#fff"/>';
+  } else if (mood === 'gentle'){
+    mouth = '<path d="M99 106 Q110 116 121 106" stroke="#463a33" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
+    eyes  = '<circle cx="89" cy="84" r="11" fill="#fff"/><circle cx="131" cy="84" r="11" fill="#fff"/>' +
+            '<circle cx="91" cy="86" r="5.5" fill="#2b2723"/><circle cx="129" cy="86" r="5.5" fill="#2b2723"/>';
+  } else {
+    // soft, sleepy-kind expression after a rough round
+    mouth = '<path d="M101 107 Q110 114 119 107" stroke="#463a33" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
+    eyes  = '<path d="M79 86 Q89 78 99 86" stroke="#2b2723" stroke-width="4.5" fill="none" stroke-linecap="round"/>' +
+            '<path d="M121 86 Q131 78 141 86" stroke="#2b2723" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
+    brows = '';
+  }
+
+  return '<svg class="totoro" viewBox="0 0 268 224" role="img" aria-label="A friendly forest spirit holding a leaf umbrella">' +
+    '<g class="tt-body">' +
+      // ears — rounded, wide-based
+      '<path d="M74 60 Q62 26 60 10 Q84 24 98 50 Z" fill="#767d87" stroke="#767d87" stroke-width="7" stroke-linejoin="round"/>' +
+      '<path d="M146 60 Q158 26 160 10 Q136 24 122 50 Z" fill="#767d87" stroke="#767d87" stroke-width="7" stroke-linejoin="round"/>' +
+      // body — narrower at the shoulders, wide and heavy at the base
+      '<path d="M110 36 C72 36 46 74 44 120 C42 172 72 204 110 204 C148 204 178 172 176 120 C174 74 148 36 110 36 Z" fill="#878e98"/>' +
+      // belly
+      '<path d="M110 66 C80 66 62 100 62 136 C62 174 84 196 110 196 C136 196 158 174 158 136 C158 100 140 66 110 66 Z" fill="#ece6da"/>' +
+      // belly chevrons
+      '<g stroke="#9aa0a9" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M84 146 l10 -11 l10 11"/><path d="M108 146 l10 -11 l10 11"/>' +
+        '<path d="M92 170 l10 -11 l10 11"/><path d="M116 170 l10 -11 l10 11"/>' +
+      '</g>' +
+      // arms
+      '<ellipse cx="48" cy="134" rx="13" ry="22" fill="#767d87" transform="rotate(12 48 134)"/>' +
+      // whiskers
+      '<g stroke="#7d838c" stroke-width="3" stroke-linecap="round">' +
+        '<path d="M62 78 L30 66"/><path d="M59 90 L25 86"/><path d="M62 102 L31 108"/>' +
+        '<path d="M158 78 L190 66"/><path d="M161 90 L195 86"/><path d="M158 102 L189 108"/>' +
+      '</g>' +
+      eyes + brows +
+      '<path d="M110 96 l8.5 8 h-17 z" fill="#3a332e"/>' +
+      mouth +
+      // feet
+      '<ellipse cx="86" cy="203" rx="19" ry="10" fill="#767d87"/>' +
+      '<ellipse cx="134" cy="203" rx="19" ry="10" fill="#767d87"/>' +
+    '</g>' +
+    // right paw + leaf umbrella, held up and out
+    '<g class="tt-arm">' +
+      '<ellipse cx="172" cy="130" rx="13" ry="22" fill="#767d87" transform="rotate(-14 172 130)"/>' +
+      '<path d="M178 122 L200 54" stroke="#8a7350" stroke-width="5.5" stroke-linecap="round"/>' +
+      '<path d="M200 58 C168 58 150 40 152 18 Q184 12 205 34 Q224 10 252 20 C250 46 226 62 200 58 Z" fill="#5c9e5a"/>' +
+      '<path d="M154 20 Q200 34 250 22" stroke="#3f7a41" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".65"/>' +
+      '<path d="M200 57 Q198 42 205 33" stroke="#3f7a41" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".65"/>' +
+    '</g>' +
+    '</svg>';
+}
+
+/* Acorns fall and bounce off the umbrella. One acorn per correct answer, so the
+   shower is literally the score. */
+function acornShower(host, count){
+  if (!host) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var cv = document.createElement('canvas');
+  host.appendChild(cv);
+  var rect = host.getBoundingClientRect();
+  var W = cv.width = Math.max(1, Math.round(rect.width));
+  var H = cv.height = Math.max(1, Math.round(rect.height + 10));
+  var ctx = cv.getContext('2d');
+  // umbrella sits around the upper right of the scene; deflect acorns there
+  var umbX = W * 0.72, umbY = H * 0.22, umbR = W * 0.22;
+
+  var drops = [];
+  for (var i = 0; i < count; i++){
+    drops.push({
+      x: W * (0.12 + Math.random() * 0.8), y: -20 - Math.random() * H * 0.9,
+      vy: 2.2 + Math.random() * 1.6, vx: 0, r: 7 + Math.random() * 3,
+      spin: (Math.random() - 0.5) * 0.2, a: Math.random() * Math.PI, hit: false, life: 1
+    });
+  }
+  function acorn(d){
+    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a); ctx.globalAlpha = d.life;
+    ctx.fillStyle = '#b9803f';
+    ctx.beginPath(); ctx.ellipse(0, d.r * 0.35, d.r * 0.72, d.r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#6f4f2a';
+    ctx.beginPath(); ctx.ellipse(0, -d.r * 0.45, d.r * 0.82, d.r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#6f4f2a'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -d.r * 0.85); ctx.lineTo(0, -d.r * 1.25); ctx.stroke();
+    ctx.restore();
+  }
+  var frames = 0;
+  (function tick(){
+    ctx.clearRect(0, 0, W, H);
+    var alive = 0;
+    drops.forEach(function(d){
+      d.y += d.vy; d.x += d.vx; d.a += d.spin;
+      if (!d.hit && Math.abs(d.x - umbX) < umbR && d.y > umbY && d.y < umbY + 26){
+        d.hit = true;                                  // plink off the umbrella
+        d.vx = (d.x < umbX ? -1 : 1) * (1.4 + Math.random() * 1.6);
+        d.vy = 1.6 + Math.random();
+        d.spin = (Math.random() - 0.5) * 0.4;
+      }
+      if (d.hit) d.life -= 0.012;
+      if (d.y < H + 30 && d.life > 0){ alive++; acorn(d); }
+    });
+    if (alive && ++frames < 420) requestAnimationFrame(tick);
+    else cv.remove();
+  })();
 }
 
 /* ---------- confetti ---------- */
@@ -781,6 +1010,7 @@ function homeView(){
     '<div class="tile"><div class="v">' + seen + '</div><div class="l">words learned</div></div>' +
     '<div class="tile"><div class="v">' + state.sessions.length + '</div><div class="l">rounds</div></div>' +
     '</div>' +
+    jarCard() +
     '<p class="explain center">Reviews mix all the decks you’ve started. Words you miss come back sooner; words you know rest longer as they level up.</p>';
 }
 
@@ -902,8 +1132,12 @@ function endView(){
   var sc = session.score;
   var pct = sc.total ? sc.correct / sc.total : 0;
   var stars = pct >= 0.9 ? 3 : pct >= 0.7 ? 2 : pct >= 0.5 ? 1 : 0;
-  var starHtml = '<div class="stars">' +
-    [0,1,2].map(function(i){ return '<span class="' + (i < stars ? '' : 'off') + '">&#9733;</span>'; }).join('') + '</div>';
+  var mood = moodFor(pct);
+  var starHtml =
+    '<div class="totoro-scene ' + 'tt-' + mood + '" id="totoro-scene">' + totoroSvg(mood) + '</div>' +
+    '<div class="stars">' +
+    [0,1,2].map(function(i){ return '<span class="' + (i < stars ? '' : 'off') + '">&#9733;</span>'; }).join('') + '</div>' +
+    (session.earned ? '<div class="acorn-earned">' + acornIcon(16) + '+' + session.earned + ' acorns</div>' : '');
   var missedIds = Object.keys(session.missed);
   var missedHtml = '';
   if (missedIds.length){
@@ -1060,6 +1294,11 @@ function render(){
   else html += parentView();
   root.innerHTML = html;
   if (session && !session.done && session.q && session.q.type === 'scramble' && !session.answered) renderScramble();
+  if (session && session.done && session.earned && !session.showered){
+    session.showered = true;
+    var host = document.getElementById('totoro-scene');
+    if (host) setTimeout(function(){ acornShower(host, session.earned); }, 180);
+  }
   var inp = document.getElementById('typed');
   if (inp && !session.answered){
     inp.focus();
