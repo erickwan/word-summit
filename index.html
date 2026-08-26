@@ -166,6 +166,7 @@ var NEW_CAP = 6;                            // max brand-new words introduced pe
 
 var PROFILE = { name:'Evia', age:'a middle schooler', goal:'SSAT vocabulary' };
 var GEN_CFG = REMOTE ? { url: REMOTE.url, key: REMOTE.key } : null;
+var QCACHE = QGEN.Cache('word-summit-qcache-v1', 14 * 86400000);
 
 var LEVELS = { 1:'Essential', 2:'Intermediate', 3:'Advanced' };
 var DECKS = [];
@@ -343,6 +344,7 @@ function makeQuestion(item, entry){
   // missed word falls through to the local generator so it isn't the same twice.
   if (session && session.gen && session.gen[item.id] && !(entry && entry.retry)){
     var g = session.gen[item.id];
+    QCACHE.consume(item.id);   // asked now, so the next review gets a new one
     return { item:item, type:g.type, prompt:g.prompt, options: shuffle(g.options.slice()),
              answer:g.answer, teach:g.teach, isNew:isNew, generated:true };
   }
@@ -460,7 +462,7 @@ function prepareRound(deckId){
     seenId[e.item.id] = 1;
     words.push({ item: e.item, history: st0(e.item.id) });
   });
-  round.promise = QGEN.generate(GEN_CFG, words, PROFILE).then(function(r){
+  round.promise = QGEN.generateCached(QCACHE, GEN_CFG, words, PROFILE).then(function(r){
     round.questions = r.questions || {};
     round.state = r.ok ? 'ready' : 'failed';
     round.why = r.why;

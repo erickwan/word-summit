@@ -126,5 +126,55 @@ var QGEN = (function () {
     });
   }
 
-  return { generate: generate, validate: validate };
+  /* Question cache.
+     Generated questions are kept per word so that reopening the app, or
+     reloading mid-round, does not pay to regenerate. A question is dropped
+     once it has actually been asked, so the next review of that word gets a
+     fresh one. */
+  function Cache(key, maxAgeMs) {
+    var store = {};
+    try { store = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch (e) { store = {}; }
+    var now = Date.now();
+    Object.keys(store).forEach(function (id) {
+      if (!store[id] || now - (store[id].ts || 0) > maxAgeMs) delete store[id];
+    });
+    function flush() {
+      try { localStorage.setItem(key, JSON.stringify(store)); } catch (e) {}
+    }
+    return {
+      get: function (id) { return store[id] ? store[id].q : null; },
+      put: function (id, q) { store[id] = { q: q, ts: Date.now() }; flush(); },
+      putAll: function (map) {
+        Object.keys(map).forEach(function (id) { store[id] = { q: map[id], ts: Date.now() }; });
+        flush();
+      },
+      consume: function (id) { if (store[id]) { delete store[id]; flush(); } },
+      size: function () { return Object.keys(store).length; }
+    };
+  }
+
+  // Generate only for words with no fresh cached question, then merge.
+  function generateCached(cache, config, words, profile) {
+    var have = {}, need = [];
+    words.forEach(function (w) {
+      var hit = cache.get(w.item.id);
+      if (hit) { hit.item = w.item; have[w.item.id] = hit; }
+      else need.push(w);
+    });
+    if (!need.length) {
+      return Promise.resolve({ ok: true, why: "cached", questions: have, fromCache: true });
+    }
+    return generate(config, need, profile).then(function (r) {
+      cache.putAll(r.questions || {});
+      Object.keys(r.questions || {}).forEach(function (id) { have[id] = r.questions[id]; });
+      return {
+        ok: Object.keys(have).length > 0,
+        why: r.why,
+        questions: have,
+        generated: Object.keys(r.questions || {}).length
+      };
+    });
+  }
+
+  return { generate: generate, generateCached: generateCached, validate: validate, Cache: Cache };
 })();
