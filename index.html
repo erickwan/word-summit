@@ -135,6 +135,37 @@ ul.tricky li{padding:8px 0; border-bottom:1px solid var(--line);}
 ul.tricky li:last-child{border-bottom:0;}
 ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 .learncard{border-left:6px solid var(--accent); padding-left:16px; margin-top:10px;}
+/* --- list browsing toolbar (My words / Parent) --- */
+.toolbar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0 6px;}
+.toolbar input.search{flex:1 1 190px; min-width:0; padding:9px 12px; border-radius:12px;
+  border:2px solid var(--line); background:var(--surface2); color:var(--ink); font-family:inherit; font-size:.95rem;}
+.toolbar input.search:focus-visible{outline:3px solid var(--accent); outline-offset:1px;}
+.toolbar select{padding:9px 10px; border-radius:12px; border:2px solid var(--line);
+  background:var(--surface2); color:var(--ink); font-family:inherit; font-size:.88rem; cursor:pointer;}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;}
+.chipbtn{border:2px solid var(--line); background:var(--surface); color:var(--muted); border-radius:999px;
+  padding:5px 12px; font-size:.85rem; font-weight:700; cursor:pointer; font-family:inherit;}
+.chipbtn:hover{border-color:var(--brand);}
+.chipbtn.on{background:var(--brand); color:var(--on-brand); border-color:var(--brand-deep);}
+.chipbtn .n{opacity:.7; font-weight:400; margin-left:4px;}
+.resultcount{color:var(--muted); font-size:.85rem; margin:2px 0 6px;}
+.emptylist{color:var(--muted); text-align:center; padding:26px 10px;}
+.showmore{display:block; margin:14px auto 0;}
+.tblwrap.tall{max-height:60vh; overflow-y:auto;}
+.tblwrap td:not(:first-child), .tblwrap th:not(:first-child){white-space:nowrap;}
+.tblwrap td:first-child{min-width:150px;}
+@media (max-width:560px){
+  .tblwrap td:first-child{min-width:0;}
+  .wordtbl .dots{letter-spacing:0; font-size:.7rem;}
+  .wordtbl th, .wordtbl td{padding:8px 6px;}
+  .wordtbl td:nth-child(2), .wordtbl th:nth-child(2),
+  .wordtbl td:nth-child(5), .wordtbl th:nth-child(5){display:none;}
+}
+.tblwrap.tall thead th{position:sticky; top:0; background:var(--surface); z-index:1;}
+.grouphdr{display:flex; align-items:baseline; gap:8px; margin:16px 0 2px; padding-top:10px; border-top:2px solid var(--line);}
+.grouphdr:first-of-type{border-top:0; padding-top:0; margin-top:4px;}
+.grouphdr h3{margin:0; font-size:1rem;}
+.grouphdr .n{color:var(--muted); font-size:.85rem;}
 #confetti{position:fixed; inset:0; pointer-events:none;}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
 @media (max-width:480px){
@@ -589,6 +620,112 @@ function confetti(){
   })();
 }
 
+
+/* ---------- list browsing (search / filter / sort) ---------- */
+var browse = { parent: { q:'', f:'all', sort:'weak', level:'all', limit:30 } };
+var PAGE = 30;
+
+function wordEntries(){
+  return WORDS.map(function(it){
+    var t = st0(it.id);
+    var n = t.correct + t.wrong;
+    return { word:it.word, it:it, box:t.box, seen:t.seen, acc: n ? t.correct/n : null,
+             last:t.last, due:t.due, level:it.level, deck:it.deck,
+             group: t.seen === 0 ? 'new' : (t.box >= 4 ? 'mastered' : 'learning') };
+  });
+}
+
+function applyBrowse(entries, b){
+  var q = (b.q || '').toLowerCase();
+  var found = entries.filter(function(e){
+    if (b.level !== 'all' && String(e.level) !== String(b.level)) return false;
+    if (!q) return true;
+    return e.word.toLowerCase().indexOf(q) >= 0 || e.it.meaning.toLowerCase().indexOf(q) >= 0;
+  });
+  var counts = { all: found.length, new:0, learning:0, mastered:0, needs:0 };
+  found.forEach(function(e){
+    if (counts[e.group] !== undefined) counts[e.group]++;
+    if (e.seen > 0 && (e.box <= 2 || (e.acc !== null && e.acc < 0.6))) counts.needs++;
+  });
+  var list = found.filter(function(e){
+    if (b.f === 'all') return true;
+    if (b.f === 'needs') return e.seen > 0 && (e.box <= 2 || (e.acc !== null && e.acc < 0.6));
+    return e.group === b.f;
+  });
+  var by = {
+    az:   function(a,c){ return a.word < c.word ? -1 : a.word > c.word ? 1 : 0; },
+    weak: function(a,c){ return (a.box - c.box) || ((a.acc===null?1.01:a.acc) - (c.acc===null?1.01:c.acc)) || (a.word < c.word ? -1 : 1); },
+    acc:  function(a,c){ return ((a.acc===null?1.01:a.acc) - (c.acc===null?1.01:c.acc)) || (a.word < c.word ? -1 : 1); },
+    deck: function(a,c){ return (a.level - c.level) || (a.deck < c.deck ? -1 : a.deck > c.deck ? 1 : 0) || (a.word < c.word ? -1 : 1); },
+    last: function(a,c){ return (c.last - a.last) || (a.word < c.word ? -1 : 1); },
+    due:  function(a,c){ return (a.due - c.due) || (a.word < c.word ? -1 : 1); }
+  };
+  return { list: list.slice().sort(by[b.sort] || by.az), counts: counts };
+}
+
+function chipsHtml(key, b, counts, defs){
+  return '<div class="chips">' + defs.map(function(d){
+    return '<button class="chipbtn' + (b.f === d[0] ? ' on' : '') + '" data-bf="' + key + ':' + d[0] + '">' +
+      d[1] + '<span class="n">' + counts[d[0]] + '</span></button>';
+  }).join('') + '</div>';
+}
+
+function showMoreHtml(key, shown, total){
+  if (shown >= total) return '';
+  return '<button class="btn small showmore" data-bm="' + key + '">Show ' +
+    Math.min(PAGE, total - shown) + ' more (' + (total - shown) + ' left)</button>';
+}
+
+function parentWordsCard(){
+  var b = browse.parent;
+  var sorts = [['weak','Weakest first'],['az','A to Z'],['acc','Lowest accuracy'],['deck','By deck'],['due','Due soonest'],['last','Recently practiced']];
+  return '<div class="card"><h3 style="margin:0;">Every word</h3>' +
+    '<div class="toolbar">' +
+      '<input class="search" type="search" id="q-parent" data-bq="parent" placeholder="Search a word or meaning" value="' + esc(b.q) + '">' +
+      '<select data-bs="parent" aria-label="Sort">' + sorts.map(function(o){
+          return '<option value="' + o[0] + '"' + (b.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('') + '</select>' +
+      '<select data-bl="parent" aria-label="Level">' +
+        ['all','1','2','3'].map(function(v){
+          var label = v === 'all' ? 'All levels' : LEVELS[v];
+          return '<option value="' + v + '"' + (String(b.level) === v ? ' selected' : '') + '>' + label + '</option>';
+        }).join('') + '</select>' +
+    '</div>' +
+    '<div id="dyn-parent">' + parentWordsDyn() + '</div></div>';
+}
+
+function parentWordsDyn(){
+  var b = browse.parent;
+  var r = applyBrowse(wordEntries(), b);
+  var shown = r.list.slice(0, b.limit);
+  function pill(a){
+    if (a === null) return '<span class="muted">&mdash;</span>';
+    var p = Math.round(a * 100);
+    return '<span class="acc-pill ' + (p >= 80 ? 'acc-hi' : p >= 60 ? 'acc-mid' : 'acc-lo') + '">' + p + '%</span>';
+  }
+  var rows = shown.map(function(e){
+    var dots = '';
+    for (var i=1; i<=5; i++) dots += '<span class="' + (i <= e.box ? 'on' : 'offd') + '">&#9679;</span>';
+    var num = parseInt(e.deck.split('-')[1], 10);
+    return '<tr><td><b>' + esc(e.word) + '</b><div class="explain" style="font-size:.78rem;">' +
+      esc(e.it.meaning.slice(0, 42)) + (e.it.meaning.length > 42 ? '…' : '') + '</div></td>' +
+      '<td>' + LEVELS[e.level].slice(0, 3) + ' ' + num + '</td>' +
+      '<td><span class="dots">' + dots + '</span></td>' +
+      '<td>' + pill(e.acc) + '</td>' +
+      '<td>' + (e.seen ? relTime(e.last) : '<span class="muted">&mdash;</span>') + '</td>' +
+      '<td>' + (e.seen ? dueLabel(e.due) : '<span class="muted">&mdash;</span>') + '</td></tr>';
+  }).join('');
+  return chipsHtml('parent', b, r.counts,
+      [['all','All'],['needs','Needs work'],['learning','Learning'],['mastered','Mastered'],['new','Not started']]) +
+    '<div class="resultcount">Showing ' + shown.length + ' of ' + r.list.length + ' words</div>' +
+    (shown.length
+      ? '<div class="tblwrap' + (shown.length > 12 ? ' tall' : '') + '"><table class="wordtbl"><thead><tr>' +
+        '<th>Word</th><th>Deck</th><th>Level</th><th>Accuracy</th><th>Last</th><th>Next due</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<div class="emptylist">No words match this filter.</div>') +
+    showMoreHtml('parent', shown.length, r.list.length);
+}
+
 /* ---------- rendering ---------- */
 var root = document.getElementById('root');
 var view = 'home';
@@ -884,20 +1021,7 @@ function parentView(){
         '<span>' + ss.correct + '/' + ss.total + ' ' + accPill(ss.total ? ss.correct / ss.total : null) + '</span></div>';
     }).join('') + '</div>' : '<div class="card explain">No practice rounds yet — the history will appear here.</div>';
 
-  var wordTable = seenRows.length ?
-    '<div class="card"><h3 style="margin:0 0 8px;">Every practiced word</h3><div class="tblwrap"><table><thead><tr>' +
-    '<th>Word</th><th>Deck</th><th>Level</th><th>Accuracy</th><th>Last</th><th>Next due</th></tr></thead><tbody>' +
-    sorted.map(function(r){
-      var dots = '';
-      for (var i=1; i<=5; i++) dots += '<span class="' + (i <= r.s.box ? 'on' : 'offd') + '">&#9679;</span>';
-      var num = parseInt(r.it.deck.split('-')[1], 10);
-      return '<tr><td><b>' + esc(r.it.word) + '</b><div class="explain" style="font-size:.78rem;">' + esc(r.it.meaning.slice(0, 42)) + (r.it.meaning.length > 42 ? '…' : '') + '</div></td>' +
-        '<td>' + LEVELS[r.it.level].slice(0, 3) + ' ' + num + '</td>' +
-        '<td><span class="dots">' + dots + '</span></td>' +
-        '<td>' + accPill(r.a) + '</td>' +
-        '<td>' + relTime(r.s.last) + '</td>' +
-        '<td>' + dueLabel(r.s.due) + '</td></tr>';
-    }).join('') + '</tbody></table></div></div>' : '';
+  var wordTable = parentWordsCard();
 
   return saveBanner() +
     '<div class="tilerow">' +
@@ -988,6 +1112,22 @@ function submitTyped(){
   else answer(false, 'You wrote “' + esc(inp.value.trim()) + '”');
 }
 
+/* Browsing controls update only their own list block, so typing in the search
+   box never re-renders (and never blurs) the input itself. */
+function refreshBrowse(key){
+  var el = document.getElementById('dyn-' + key);
+  if (el) el.innerHTML = parentWordsDyn();
+}
+root.addEventListener('input', function(e){
+  var key = e.target && e.target.dataset && e.target.dataset.bq;
+  if (!key || !browse[key]) return;
+  browse[key].q = e.target.value; browse[key].limit = PAGE; refreshBrowse(key);
+});
+root.addEventListener('change', function(e){
+  var d = e.target && e.target.dataset; if (!d) return;
+  if (d.bs && browse[d.bs]){ browse[d.bs].sort = e.target.value; browse[d.bs].limit = PAGE; refreshBrowse(d.bs); }
+  else if (d.bl && browse[d.bl]){ browse[d.bl].level = e.target.value; browse[d.bl].limit = PAGE; refreshBrowse(d.bl); }
+});
 root.addEventListener('click', function(e){
   var t = e.target.closest('button');
   if (!t) return;
@@ -997,6 +1137,15 @@ root.addEventListener('click', function(e){
     view = t.dataset.view; render(); return;
   }
   if (t.dataset.deck){ view = 'home'; startSession(t.dataset.deck); return; }
+  if (t.dataset.bf){
+    var pf = t.dataset.bf.split(':');
+    if (browse[pf[0]]){ browse[pf[0]].f = pf[1]; browse[pf[0]].limit = PAGE; refreshBrowse(pf[0]); }
+    return;
+  }
+  if (t.dataset.bm){
+    if (browse[t.dataset.bm]){ browse[t.dataset.bm].limit += PAGE; refreshBrowse(t.dataset.bm); }
+    return;
+  }
   var act = t.dataset.act;
   if (act === 'start'){ startSession(null); return; }
   if (act === 'skip-gen'){
