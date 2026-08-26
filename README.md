@@ -10,3 +10,19 @@ A spaced-repetition SSAT vocabulary trainer for Evia, hosted on GitHub Pages.
 - **Scores** sync via Supabase (with localStorage fallback), so progress is shared across devices.
 
 Static files (`index.html` + `words.js`), no build step.
+
+## Credits
+
+Celebration clips are embedded from GIPHY's CDN rather than copied into this
+repo. One is picked at random when a round ends, never repeating twice in a row,
+and a separate clip plays when the acorn jar passes a milestone and the tree
+grows. If a clip cannot be reached, the app falls back to drawn SVG art so the
+screen still works offline.
+
+- https://giphy.com/gifs/maudit-my-neighbor-totoro-x5HlLDaLMZNVS
+- https://giphy.com/gifs/studio-ghibli-ZYZEFjLzOV3fq
+- https://giphy.com/gifs/maudit-my-neighbor-totoro-Sr7cfpFkx4zWU
+- https://giphy.com/gifs/studio-ghibli-J4FsxFgZgN2HS
+- https://giphy.com/gifs/tiff-studio-ghibli-hayao-miyazaki-my-neighbor-totoro-PgPVijEEPl6gw8WRRl
+- https://giphy.com/gifs/studio-ghibli-unzR48isp6cCY
+- https://giphy.com/gifs/hayao-miyazaki-totoro-3o751Syb8nQNtUPD7G (tree milestone)

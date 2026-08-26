@@ -167,7 +167,7 @@ ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 .grouphdr h3{margin:0; font-size:1rem;}
 .grouphdr .n{color:var(--muted); font-size:.85rem;}
 /* --- Totoro end-of-round scene --- */
-.totoro-scene{position:relative; display:flex; justify-content:center; margin:4px 0 2px; min-height:190px;}
+.totoro-scene{position:relative; display:flex; justify-content:center; align-items:center; margin:4px 0 2px; min-height:206px;}
 .totoro{width:210px; height:auto; overflow:visible;}
 .tt-body{transform-origin:110px 200px;}
 .tt-arm{transform-origin:150px 120px;}
@@ -196,7 +196,12 @@ ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 .tt-happy .tt-body{animation:tt-nod .9s ease-in-out .15s 2;}
 .tt-gentle .tt-body{animation:tt-sway 2.4s ease-in-out .1s 2;}
 .tt-offer .tt-arm{animation:tt-tilt .9s ease-out .3s forwards;}
-.totoro-scene canvas{position:absolute; inset:-10px 0 0 0; width:100%; height:calc(100% + 10px); pointer-events:none;}
+.totoro-scene canvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1;}
+.clip-wrap{position:relative; z-index:2;}
+.clip-wrap picture{display:block;}
+.clip-img{height:auto; display:block; border-radius:14px;}
+.tt-gif{max-height:200px; width:auto; max-width:86%; margin:0 auto;}
+.grow-gif{max-height:190px; width:auto; max-width:88%; margin:0 auto;}
 .acorn-earned{display:inline-flex; align-items:center; gap:6px; font-family:Outfit,sans-serif; font-weight:700;
   color:var(--accent-deep); background:rgba(223,162,47,.16); border-radius:999px; padding:4px 14px; margin-top:2px;
   animation:tt-pop .5s ease-out .8s both;}
@@ -632,7 +637,12 @@ function endSession(){
   session.done = true;
   session.score = { correct: correct, total: session.total };
   session.earned = correct;
-  state.acorns = (state.acorns || 0) + correct;
+  session.clip = pickClip();
+  var acornsBefore = state.acorns || 0;
+  state.acorns = acornsBefore + correct;
+  // did this round push the jar past a milestone, growing the tree?
+  var passed = JAR_MILESTONES.filter(function(m){ return acornsBefore < m && state.acorns >= m; });
+  session.grewTree = passed.length ? passed[passed.length - 1] : 0;
   saveLocal();
   render();
   setTimeout(function(){ if (!prepared) prepared = prepareRound(null); }, 1500);
@@ -655,6 +665,25 @@ function acornIcon(size){
 
 /* Acorns collected across every round, with a tree that grows at milestones. */
 var JAR_MILESTONES = [25, 50, 100, 200, 400];
+
+/* The jar's tree, gaining a tier at every milestone reached. Also stands in for
+   the growth clip when that cannot be loaded. */
+function jarTreeSvg(reached){
+  if (reached === undefined){
+    var n = state.acorns || 0;
+    reached = JAR_MILESTONES.filter(function(m){ return n >= m; }).length;
+  }
+  var treeH = 16 + reached * 9;
+  return '<svg width="54" height="86" viewBox="0 0 54 86" aria-hidden="true" style="margin:0 auto;display:block;">' +
+    '<path d="M27 84 V' + (74 - treeH * 0.45) + '" stroke="#7c6a4f" stroke-width="5" stroke-linecap="round"/>' +
+    (reached
+      ? '<ellipse cx="27" cy="' + (66 - treeH * 0.7) + '" rx="' + (11 + reached * 3.2) + '" ry="' + (9 + reached * 2.6) + '" fill="#5c9e5a"/>' +
+        '<ellipse cx="' + (16 - reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#6db06a"/>' +
+        '<ellipse cx="' + (38 + reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#4f8f4e"/>'
+      : '<path d="M27 70 q-9 -6 -12 -14 q11 1 12 9" fill="#6db06a"/>') +
+    '</svg>';
+}
+
 function jarCard(){
   var n = state.acorns || 0;
   var next = null;
@@ -666,16 +695,7 @@ function jarCard(){
   var pct = next ? Math.min(1, (n - prev) / (next - prev)) : 1;
   var fillH = Math.round(52 * pct);
 
-  // a little tree that gains a tier at every milestone reached
-  var treeH = 16 + reached * 9;
-  var tree = '<svg width="54" height="86" viewBox="0 0 54 86" aria-hidden="true">' +
-    '<path d="M27 84 V' + (74 - treeH * 0.45) + '" stroke="#7c6a4f" stroke-width="5" stroke-linecap="round"/>' +
-    (reached
-      ? '<ellipse cx="27" cy="' + (66 - treeH * 0.7) + '" rx="' + (11 + reached * 3.2) + '" ry="' + (9 + reached * 2.6) + '" fill="#5c9e5a"/>' +
-        '<ellipse cx="' + (16 - reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#6db06a"/>' +
-        '<ellipse cx="' + (38 + reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#4f8f4e"/>'
-      : '<path d="M27 70 q-9 -6 -12 -14 q11 1 12 9" fill="#6db06a"/>') +
-    '</svg>';
+  var tree = jarTreeSvg(reached);
 
   var jar = '<svg width="66" height="86" viewBox="0 0 66 86" aria-hidden="true">' +
     '<rect x="20" y="4" width="26" height="7" rx="3" fill="#b9a06f"/>' +
@@ -697,6 +717,65 @@ function jarCard(){
 }
 
 /* ---------- Totoro end-of-round scene ---------- */
+/* Celebration clips, embedded from GIPHY's CDN. One is picked at random when a
+   round ends; the previous pick is skipped so the same clip never repeats twice
+   in a row. If a clip cannot be loaded, the drawn scene takes its place. */
+var TT_CLIPS = [
+  { id:'x5HlLDaLMZNVS',      alt:'Totoro under the rain' },
+  { id:'ZYZEFjLzOV3fq',      alt:'A happy Ghibli moment' },
+  { id:'Sr7cfpFkx4zWU',      alt:'Totoro waiting' },
+  { id:'J4FsxFgZgN2HS',      alt:'A gentle Ghibli scene' },
+  { id:'PgPVijEEPl6gw8WRRl', alt:'Totoro and friends' },
+  { id:'unzR48isp6cCY',      alt:'A Ghibli moment' }
+];
+var GROW_CLIP = { id:'3o751Syb8nQNtUPD7G', alt:'A sprout grows into a tree' };
+var LAST_CLIP_KEY = 'word-summit-lastclip';
+
+function clipUrl(id, ext){ return 'https://media.giphy.com/media/' + id + '/giphy.' + ext; }
+
+function pickClip(){
+  var pool = TT_CLIPS, lastId = null;
+  try { lastId = localStorage.getItem(LAST_CLIP_KEY); } catch (e) {}
+  var fresh = pool.filter(function(c){ return c.id !== lastId; });
+  if (fresh.length) pool = fresh;                  // never the same clip twice running
+  var clip = pool[Math.floor(Math.random() * pool.length)];
+  try { localStorage.setItem(LAST_CLIP_KEY, clip.id); } catch (e) {}
+  return clip;
+}
+
+// picture + hidden fallback; watchClips() swaps them if the clip fails to load
+function clipMarkup(clip, imgClass, fallbackHtml){
+  return '<div class="clip-wrap">' +
+    '<picture>' +
+      '<source srcset="' + clipUrl(clip.id, 'webp') + '" type="image/webp">' +
+      '<img class="clip-img ' + imgClass + '" src="' + clipUrl(clip.id, 'gif') + '" ' +
+        'alt="' + clip.alt + '" decoding="async">' +
+    '</picture>' +
+    '<div class="clip-fallback" style="display:none;">' + fallbackHtml + '</div>' +
+    '</div>';
+}
+
+function watchClips(){
+  var imgs = document.querySelectorAll('.clip-img');
+  for (var k = 0; k < imgs.length; k++){
+    (function(img){
+      if (img.dataset.watched) return;
+      img.dataset.watched = '1';
+      function fail(){
+        var wrap = img.closest('.clip-wrap');
+        if (!wrap) return;
+        var pic = wrap.querySelector('picture');
+        var fb = wrap.querySelector('.clip-fallback');
+        if (pic) pic.style.display = 'none';
+        if (fb) fb.style.display = 'block';
+      }
+      img.addEventListener('error', fail);
+      if (img.complete && img.naturalWidth === 0) fail();
+    })(imgs[k]);
+  }
+}
+
+
 function moodFor(pct){
   if (pct >= 0.999) return 'roar';
   if (pct >= 0.7)   return 'happy';
@@ -769,30 +848,33 @@ function totoroSvg(mood){
     '</svg>';
 }
 
-/* Acorns fall and bounce off the umbrella. One acorn per correct answer, so the
-   shower is literally the score. */
+/* Acorns rain past the scene, one per correct answer, so the shower is a
+   measure of the round. They fall behind the clip so they frame it rather than
+   cover it. */
 function acornShower(host, count){
   if (!host) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   var cv = document.createElement('canvas');
-  host.appendChild(cv);
+  host.insertBefore(cv, host.firstChild);
   var rect = host.getBoundingClientRect();
   var W = cv.width = Math.max(1, Math.round(rect.width));
-  var H = cv.height = Math.max(1, Math.round(rect.height + 10));
+  var H = cv.height = Math.max(1, Math.round(rect.height));
   var ctx = cv.getContext('2d');
-  // umbrella sits around the upper right of the scene; deflect acorns there
-  var umbX = W * 0.72, umbY = H * 0.22, umbR = W * 0.22;
 
   var drops = [];
   for (var i = 0; i < count; i++){
     drops.push({
-      x: W * (0.12 + Math.random() * 0.8), y: -20 - Math.random() * H * 0.9,
-      vy: 2.2 + Math.random() * 1.6, vx: 0, r: 7 + Math.random() * 3,
-      spin: (Math.random() - 0.5) * 0.2, a: Math.random() * Math.PI, hit: false, life: 1
+      x: W * (0.04 + Math.random() * 0.92),
+      y: -24 - Math.random() * H * 1.3,
+      vy: 1.9 + Math.random() * 1.7,
+      r: 6 + Math.random() * 3.4,
+      a: Math.random() * Math.PI,
+      spin: (Math.random() - 0.5) * 0.16,
+      sway: (Math.random() - 0.5) * 0.5
     });
   }
   function acorn(d){
-    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a); ctx.globalAlpha = d.life;
+    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a);
     ctx.fillStyle = '#b9803f';
     ctx.beginPath(); ctx.ellipse(0, d.r * 0.35, d.r * 0.72, d.r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#6f4f2a';
@@ -806,17 +888,10 @@ function acornShower(host, count){
     ctx.clearRect(0, 0, W, H);
     var alive = 0;
     drops.forEach(function(d){
-      d.y += d.vy; d.x += d.vx; d.a += d.spin;
-      if (!d.hit && Math.abs(d.x - umbX) < umbR && d.y > umbY && d.y < umbY + 26){
-        d.hit = true;                                  // plink off the umbrella
-        d.vx = (d.x < umbX ? -1 : 1) * (1.4 + Math.random() * 1.6);
-        d.vy = 1.6 + Math.random();
-        d.spin = (Math.random() - 0.5) * 0.4;
-      }
-      if (d.hit) d.life -= 0.012;
-      if (d.y < H + 30 && d.life > 0){ alive++; acorn(d); }
+      d.y += d.vy; d.x += Math.sin(d.y / 34) * d.sway; d.a += d.spin;
+      if (d.y < H + 30){ alive++; acorn(d); }
     });
-    if (alive && ++frames < 420) requestAnimationFrame(tick);
+    if (alive && ++frames < 360) requestAnimationFrame(tick);
     else cv.remove();
   })();
 }
@@ -1134,7 +1209,8 @@ function endView(){
   var stars = pct >= 0.9 ? 3 : pct >= 0.7 ? 2 : pct >= 0.5 ? 1 : 0;
   var mood = moodFor(pct);
   var starHtml =
-    '<div class="totoro-scene ' + 'tt-' + mood + '" id="totoro-scene">' + totoroSvg(mood) + '</div>' +
+    '<div class="totoro-scene tt-' + mood + '" id="totoro-scene">' +
+      clipMarkup(session.clip || TT_CLIPS[0], 'tt-gif', totoroSvg(mood)) + '</div>' +
     '<div class="stars">' +
     [0,1,2].map(function(i){ return '<span class="' + (i < stars ? '' : 'off') + '">&#9733;</span>'; }).join('') + '</div>' +
     (session.earned ? '<div class="acorn-earned">' + acornIcon(16) + '+' + session.earned + ' acorns</div>' : '');
@@ -1148,6 +1224,12 @@ function endView(){
       }).join('') + '</ul></div>';
   }
   var praise = pct >= 0.9 ? 'Peak performance!' : pct >= 0.7 ? 'Great climbing!' : pct >= 0.5 ? 'Good practice!' : 'Tough stretch — those words will come back soon!';
+  var grewHtml = session.grewTree
+    ? '<div class="card center"><div class="qask">' + session.grewTree + ' acorns</div>' +
+      '<h3 style="margin:4px 0 8px;">Your tree grew!</h3>' +
+      clipMarkup(GROW_CLIP, 'grow-gif', jarTreeSvg()) +
+      '</div>'
+    : '';
   return '<div class="card center home-hero">' + starHtml +
     '<h1 style="margin:8px 0 4px;">' + praise + '</h1>' +
     '<div class="big-num">' + sc.correct + '<span class="muted" style="font-size:1.4rem;"> / ' + sc.total + '</span></div>' +
@@ -1155,7 +1237,7 @@ function endView(){
     '<div style="margin-top:22px;"><button class="btn primary" data-act="finish">Done</button></div>' +
     '<p class="explain" id="save-note" style="margin-bottom:0;">' +
     (REMOTE ? (dirty ? 'Syncing your score…' : 'Score synced.') : 'Score saved on this device.') + '</p>' +
-    '</div>' + missedHtml;
+    '</div>' + grewHtml + missedHtml;
 }
 
 function decksView(){
@@ -1294,6 +1376,7 @@ function render(){
   else html += parentView();
   root.innerHTML = html;
   if (session && !session.done && session.q && session.q.type === 'scramble' && !session.answered) renderScramble();
+  watchClips();
   if (session && session.done && session.earned && !session.showered){
     session.showered = true;
     var host = document.getElementById('totoro-scene');
