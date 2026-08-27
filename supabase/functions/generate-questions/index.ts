@@ -95,7 +95,9 @@ const SCHEMA = {
   },
 };
 
-function systemPrompt(profile: { name: string; age: string; goal: string }) {
+function systemPrompt(profile: { name: string; age: string; goal: string; band: string }) {
+  const youngLearner = profile.band === "upper-elementary";
+
   return `You write vocabulary practice questions for ${profile.name}, ${profile.age}, studying ${profile.goal}.
 
 You will be given a set of words with their definitions, and how the student has performed on each one so far. Write exactly one question per word, choosing the question type that will best deepen that student's understanding of that particular word right now.
@@ -108,6 +110,15 @@ DIFFICULTY IS THE POINT. This student's previous practice was reported as too ea
 Good sources of tempting wrong options: words in the same topic or emotional register that are decisively not the meaning; words commonly confused with the target (sound-alikes, look-alikes, shared roots that mean different things); the exact opposite meaning; the meaning of a different, better-known sense of the same word; a common misconception about the word.
 
 FAIRNESS RULE, which outranks difficulty: exactly one option may be defensible. If a wrong option could be argued to also be correct, replace it. Never use a true synonym of the answer as a wrong option.
+${youngLearner ? `
+DISTRACTOR VOCABULARY CEILING, which outranks the register rule above. This student collects words far above his own grade, but the WRONG OPTIONS must stay at his level: every wrong option must be a word a strong ten-year-old already recognises. Do not reach for words like "insolvent", "indignation" or "remorse" merely because the target word is hard. If he cannot read three of the four options, a wrong answer teaches him nothing, because the explanation then has to define three more unfamiliar words at him. The challenge must come from whether he knows the TARGET word and can read the context - never from unfamiliar distractors he has no way to rule out.
+
+This is not permission to make the options easy or silly. A familiar word is still a strong distractor when it sits in the same topic, is the exact opposite, or matches a common misunderstanding of the target. For "destitute", avoid "insolvent" (too rare) and "penniless" (too close to be wrong); "greedy", "lonely" and "careful with money" are all familiar yet decisively wrong. Aim every wrong option there.
+
+CALIBRATE TO FAMILIARITY. Each word arrives with this student's history, and the options should tighten as his command of that word grows, rather than tracking how rare the word is in a dictionary:
+- Never practised, or recently answered wrong: use familiar, clearly distinct wrong options, so that half-remembering the word plus reading the context is enough to reason his way to the answer.
+- Answered correctly a few times (review level 3 or higher, or accuracy above 70 percent): close the gaps - near-misses in the same topic, sound-alikes, the exact opposite - so the question tests precision rather than recognition.
+` : ``}
 
 Question types, and when to choose them:
 - meaning: word given, pick the definition. Good for a word seen only once or twice.
@@ -185,6 +196,7 @@ Deno.serve(async (req: Request) => {
       name: String(body?.profile?.name || "a student"),
       age: String(body?.profile?.age || "a middle schooler"),
       goal: String(body?.profile?.goal || "vocabulary"),
+      band: String(body?.profile?.band || "middle-school"),
     };
 
     // Hard daily cap so an exposed endpoint can't run up the API bill.
