@@ -67,6 +67,24 @@ The app password comes from https://myaccount.google.com/apppasswords
 (requires 2-step verification on the Google account). The email is sent
 from that Gmail account via SMTP.
 
+## Desktop notifications (Web Push)
+
+The same 6:30pm run also sends a Web Push notification to every browser
+registered in the `push_subs` table. To register a device, open the app
+and press "Remind me at 6:30pm on this device", then allow notifications.
+On macOS Safari (Ventura+) they arrive even with the browser closed.
+
+Push signing uses VAPID keys stored as function secrets (`VAPID_KEYS`,
+a JSON export of the P-256 keypair, and `VAPID_CONTACT`); the matching
+public key is `PUSH_KEY` in index.html. If the keys are ever regenerated,
+update both and every device must re-subscribe.
+
+To test without sending email (notifies all registered devices):
+
+```bash
+curl -s -X POST "https://ywoaeadxfettakxehsel.supabase.co/functions/v1/practice-reminder?push_test=1"
+```
+
 To test without waiting for 6:30pm:
 
 ```bash

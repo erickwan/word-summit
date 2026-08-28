@@ -16,6 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import * as webpush from "jsr:@negrel/webpush@0.3.0";
 
 const TZ = "America/Los_Angeles";
 const SEND_HOUR = 18; // 6pm–7pm local is the send window
@@ -80,6 +81,43 @@ function streakDays(sessions: Array<{ t: number }>): number {
   let n = 0;
   while (n < 365 && days.has(laParts(Date.now() - (n + 1) * 86400000).date)) n++;
   return n;
+}
+
+// Web Push to every registered browser (see push_subs + the app's sw.js).
+// Dead subscriptions (endpoint gone) are pruned as they are discovered.
+async function sendPushes(
+  admin: ReturnType<typeof createClient>,
+  payload: { title: string; body: string; url: string },
+) {
+  const keysJson = Deno.env.get("VAPID_KEYS");
+  if (!keysJson) return { sent: 0, pruned: 0, total: 0, errors: ["vapid_not_configured"] };
+  const { data: subs, error } = await admin.from("push_subs").select("endpoint, sub");
+  if (error) return { sent: 0, pruned: 0, total: 0, errors: [error.message] };
+  if (!subs?.length) return { sent: 0, pruned: 0, total: 0, errors: [] };
+
+  const vapidKeys = await webpush.importVapidKeys(JSON.parse(keysJson), { extractable: false });
+  const appServer = await webpush.ApplicationServer.new({
+    contactInformation: Deno.env.get("VAPID_CONTACT") ?? `mailto:${PARENT}`,
+    vapidKeys,
+  });
+
+  let sent = 0, pruned = 0;
+  const errors: string[] = [];
+  for (const row of subs) {
+    try {
+      await appServer.subscribe(row.sub as webpush.PushSubscription)
+        .pushTextMessage(JSON.stringify(payload), {});
+      sent++;
+    } catch (err) {
+      if (err instanceof webpush.PushMessageError && err.isGone()) {
+        await admin.from("push_subs").delete().eq("endpoint", row.endpoint);
+        pruned++;
+      } else {
+        errors.push(String((err as Error)?.message || err));
+      }
+    }
+  }
+  return { sent, pruned, total: subs.length, errors };
 }
 
 // Consecutive days with no practice, counting today as missed (only called
@@ -163,7 +201,7 @@ function buildEmail(state: { sessions?: Array<{ t: number }>; stats?: Record<str
     `\n"${quote}" — ${quoteBy}\n` +
     `\nKeep climbing: ${APP_URL}\n`;
 
-  return { subject: msg.subject, html, text, quote: `${quote} — ${quoteBy}`,
+  return { subject: msg.subject, intro: msg.intro, html, text, quote: `${quote} — ${quoteBy}`,
     stats: { acorns, learned, streak, rounds: sessions.length } };
 }
 
@@ -202,6 +240,16 @@ Deno.serve(async (req: Request) => {
 
     const now = laParts(Date.now());
 
+    // Test hook: push a notification to every registered browser, no email.
+    if (url.searchParams.get("push_test") === "1") {
+      const push = await sendPushes(admin, {
+        title: "\u{1F331} Word Summit",
+        body: "Test notification — reminders are working on this device!",
+        url: APP_URL,
+      });
+      return json({ pushTest: true, ...push });
+    }
+
     const { data: row, error: loadErr } = await admin
       .from("word_lab").select("state").eq("id", STATE_ROW).maybeSingle();
     // On any data problem, skip rather than nag off bad information.
@@ -221,7 +269,10 @@ Deno.serve(async (req: Request) => {
     if (!force && now.hour !== SEND_HOUR) {
       return json({ sent: false, reason: "outside_send_window", localHour: now.hour, stats: email.stats, missedDays: missed });
     }
-    if (dryRun) return json({ sent: false, reason: "dry_run", wouldSend: true, subject: email.subject, quote: email.quote, stats: email.stats, missedDays: missed, wouldAlertParent: alertParent });
+    if (dryRun) {
+      const { count } = await admin.from("push_subs").select("*", { count: "exact", head: true });
+      return json({ sent: false, reason: "dry_run", wouldSend: true, subject: email.subject, quote: email.quote, stats: email.stats, missedDays: missed, wouldAlertParent: alertParent, pushSubs: count ?? 0 });
+    }
 
     const gmailUser = Deno.env.get("GMAIL_USER");
     const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
@@ -230,6 +281,12 @@ Deno.serve(async (req: Request) => {
     // Claim today before sending; a unique-key conflict means already sent.
     const ins = await admin.from("reminder_log").insert({ day: now.date });
     if (ins.error) return json({ sent: false, reason: "already_sent_today" });
+
+    const push = await sendPushes(admin, {
+      title: "\u{1F331} Word Summit",
+      body: email.intro,
+      url: APP_URL,
+    });
 
     const smtp = new SMTPClient({
       connection: {
@@ -250,10 +307,11 @@ Deno.serve(async (req: Request) => {
         html: email.html,
       });
     } catch (err) {
-      // Release the day so a later manual retry can still send.
-      await admin.from("reminder_log").delete().eq("day", now.date);
+      // Release the day for a manual retry only if the push also failed to
+      // go out; otherwise a retry would notify her laptop twice.
+      if (push.sent === 0) await admin.from("reminder_log").delete().eq("day", now.date);
       try { await smtp.close(); } catch { /* already closed */ }
-      return json({ sent: false, reason: "smtp_failed", detail: String((err as Error)?.message || err) }, 502);
+      return json({ sent: false, reason: "smtp_failed", push, detail: String((err as Error)?.message || err) }, 502);
     }
     if (alertParent) {
       const parent = buildParentEmail(row.state ?? {}, missed);
@@ -272,7 +330,7 @@ Deno.serve(async (req: Request) => {
     }
     try { await smtp.close(); } catch { /* already closed */ }
 
-    return json({ sent: true, to: RECIPIENT, day: now.date, missedDays: missed,
+    return json({ sent: true, to: RECIPIENT, day: now.date, missedDays: missed, push,
       parentAlert: alertParent ? { sent: parentSent, to: PARENT, error: parentError } : null });
   } catch (err) {
     return json({ error: "unexpected", detail: String((err as Error)?.message || err) }, 500);
