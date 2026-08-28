@@ -38,6 +38,40 @@ const MESSAGES = [
     intro: "You haven't practiced yet today. Hop on for a quick round — your tree wants to grow!" },
 ];
 
+// One per email, rotating daily through all 30 (epoch-day modulo length).
+const QUOTES: Array<[string, string]> = [
+  ["It always seems impossible until it's done.", "Nelson Mandela"],
+  ["The beautiful thing about learning is that no one can take it away from you.", "B.B. King"],
+  ["It does not matter how slowly you go as long as you do not stop.", "Confucius"],
+  ["Do the best you can until you know better. Then when you know better, do better.", "Maya Angelou"],
+  ["Nothing will work unless you do.", "Maya Angelou"],
+  ["I have not failed. I've just found 10,000 ways that won't work.", "Thomas Edison"],
+  ["Genius is one percent inspiration and ninety-nine percent perspiration.", "Thomas Edison"],
+  ["A journey of a thousand miles begins with a single step.", "Lao Tzu"],
+  ["We are what we repeatedly do. Excellence, then, is not an act but a habit.", "Will Durant"],
+  ["Success is the sum of small efforts, repeated day in and day out.", "Robert Collier"],
+  ["Whether you think you can, or you think you can't — you're right.", "Henry Ford"],
+  ["Education is the most powerful weapon which you can use to change the world.", "Nelson Mandela"],
+  ["You don't have to be great to start, but you have to start to be great.", "Zig Ziglar"],
+  ["Perseverance is not a long race; it is many short races one after the other.", "Walter Elliot"],
+  ["Well done is better than well said.", "Benjamin Franklin"],
+  ["An investment in knowledge pays the best interest.", "Benjamin Franklin"],
+  ["Success is not final, failure is not fatal: it is the courage to continue that counts.", "Winston Churchill"],
+  ["You miss 100% of the shots you don't take.", "Wayne Gretzky"],
+  ["Start where you are. Use what you have. Do what you can.", "Arthur Ashe"],
+  ["The more that you read, the more things you will know. The more that you learn, the more places you'll go.", "Dr. Seuss"],
+  ["Practice isn't the thing you do once you're good. It's the thing you do that makes you good.", "Malcolm Gladwell"],
+  ["Don't watch the clock; do what it does. Keep going.", "Sam Levenson"],
+  ["The future belongs to those who believe in the beauty of their dreams.", "Eleanor Roosevelt"],
+  ["One child, one teacher, one book, one pen can change the world.", "Malala Yousafzai"],
+  ["Champions keep playing until they get it right.", "Billie Jean King"],
+  ["It's kind of fun to do the impossible.", "Walt Disney"],
+  ["Learning never exhausts the mind.", "Leonardo da Vinci"],
+  ["Believe you can and you're halfway there.", "Theodore Roosevelt"],
+  ["However difficult life may seem, there is always something you can do and succeed at.", "Stephen Hawking"],
+  ["The limits of my language mean the limits of my world.", "Ludwig Wittgenstein"],
+];
+
 // Consecutive days with a practice round, counting back from yesterday
 // (today is missing by definition when a reminder goes out).
 function streakDays(sessions: Array<{ t: number }>): number {
@@ -59,6 +93,7 @@ function buildEmail(state: { sessions?: Array<{ t: number }>; stats?: Record<str
   const learned = Object.values(state.stats ?? {}).filter((s) => (s.seen ?? 0) > 0).length;
   const streak = streakDays(sessions);
   const msg = MESSAGES[new Date().getDate() % MESSAGES.length];
+  const [quote, quoteBy] = QUOTES[Math.floor(Date.now() / 86400000) % QUOTES.length];
 
   // A zero streak reads as a scold; show total rounds instead.
   const third = streak > 0
@@ -75,6 +110,10 @@ function buildEmail(state: { sessions?: Array<{ t: number }>; stats?: Record<str
     statTile(learned, "words learned", "#E1F5EE", "#04342C", "#0F6E56") +
     third +
     `</tr></table>` +
+    `<div style="border-left:3px solid #AFA9EC;padding:2px 0 2px 12px;margin:0 0 16px;">` +
+    `<p style="margin:0;font-size:13px;color:#3C3489;line-height:1.55;font-style:italic;">“${quote}”</p>` +
+    `<p style="margin:4px 0 0;font-size:12px;color:#7F77DD;">— ${quoteBy}</p>` +
+    `</div>` +
     `<div style="text-align:center;margin:0 0 4px;">` +
     `<a href="${APP_URL}" style="display:inline-block;background:#534AB7;color:#EEEDFE;font-size:14px;font-weight:bold;padding:10px 22px;border-radius:8px;text-decoration:none;">Keep climbing →</a>` +
     `</div>` +
@@ -84,9 +123,11 @@ function buildEmail(state: { sessions?: Array<{ t: number }>; stats?: Record<str
   const text = `Hi Evia!\n\n${msg.intro}\n\n` +
     `Acorns: ${acorns}\nWords learned: ${learned}\n` +
     (streak > 0 ? `Day streak: ${streak}\n` : `Rounds done: ${sessions.length}\n`) +
+    `\n"${quote}" — ${quoteBy}\n` +
     `\nKeep climbing: ${APP_URL}\n`;
 
-  return { subject: msg.subject, html, text, stats: { acorns, learned, streak, rounds: sessions.length } };
+  return { subject: msg.subject, html, text, quote: `${quote} — ${quoteBy}`,
+    stats: { acorns, learned, streak, rounds: sessions.length } };
 }
 
 function laParts(ms: number) {
@@ -141,7 +182,7 @@ Deno.serve(async (req: Request) => {
     if (!force && now.hour !== SEND_HOUR) {
       return json({ sent: false, reason: "outside_send_window", localHour: now.hour, stats: email.stats });
     }
-    if (dryRun) return json({ sent: false, reason: "dry_run", wouldSend: true, subject: email.subject, stats: email.stats });
+    if (dryRun) return json({ sent: false, reason: "dry_run", wouldSend: true, subject: email.subject, quote: email.quote, stats: email.stats });
 
     const gmailUser = Deno.env.get("GMAIL_USER");
     const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
