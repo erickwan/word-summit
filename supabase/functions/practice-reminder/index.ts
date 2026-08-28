@@ -22,28 +22,72 @@ const SEND_HOUR = 18; // 6pm–7pm local is the send window
 const RECIPIENT = "evia.kwan@gmail.com";
 const STATE_ROW = "evia";
 
+const APP_URL = "https://erickwan.github.io/word-summit/";
+
+// Rotated by day of month so consecutive days don't repeat.
 const MESSAGES = [
-  {
-    subject: "Word Summit reminder \u{1F331}",
-    body: "Hi Evia!\n\nJust a friendly nudge — no Word Summit round yet today. One quick round keeps your acorn jar growing!\n\nYou've got this. \u{1F330}",
-  },
-  {
-    subject: "Your words miss you \u{1F333}",
-    body: "Hi Evia!\n\nLooks like today's Word Summit practice hasn't happened yet. A single round only takes a few minutes — go earn some acorns!\n\n\u{1F331}",
-  },
-  {
-    subject: "Quick round before bed? \u{1F330}",
-    body: "Hi Evia!\n\nNo practice recorded today — there's still time for one round. The forest spirits are waiting to celebrate with you!\n\nYou can do it!",
-  },
-  {
-    subject: "Don't break the streak! \u{1F331}",
-    body: "Hi Evia!\n\nToday's Word Summit round is still waiting for you. Keep those words fresh — one round and you're done for the day.\n\n\u{1F333}\u{1F330}",
-  },
-  {
-    subject: "Totoro says: practice time \u{1F343}",
-    body: "Hi Evia!\n\nYou haven't done your Word Summit practice yet today. Hop on for a quick round — your tree wants to grow!\n\n\u{1F331}",
-  },
+  { subject: "Word Summit reminder \u{1F331}",
+    intro: "Just a friendly nudge — no round yet today. Look how far you've climbed; don't stop now!" },
+  { subject: "Your words miss you \u{1F333}",
+    intro: "Today's practice hasn't happened yet. A single round only takes a few minutes — go earn some acorns!" },
+  { subject: "Quick round before bed? \u{1F330}",
+    intro: "No practice recorded today — there's still time for one round. The forest spirits are waiting!" },
+  { subject: "Don't break the streak! \u{1F331}",
+    intro: "Today's round is still waiting for you. Keep those words fresh — one round and you're done for the day." },
+  { subject: "Totoro says: practice time \u{1F343}",
+    intro: "You haven't practiced yet today. Hop on for a quick round — your tree wants to grow!" },
 ];
+
+// Consecutive days with a practice round, counting back from yesterday
+// (today is missing by definition when a reminder goes out).
+function streakDays(sessions: Array<{ t: number }>): number {
+  const days = new Set(sessions.map((s) => laParts(s.t).date));
+  let n = 0;
+  while (n < 365 && days.has(laParts(Date.now() - (n + 1) * 86400000).date)) n++;
+  return n;
+}
+
+function statTile(value: number, label: string, bg: string, dark: string, mid: string): string {
+  return `<td width="33%" style="background:${bg};border-radius:8px;padding:10px;text-align:center;">` +
+    `<div style="font-size:20px;font-weight:bold;color:${dark};font-family:Arial,Helvetica,sans-serif;">${value}</div>` +
+    `<div style="font-size:11px;color:${mid};font-family:Arial,Helvetica,sans-serif;">${label}</div></td>`;
+}
+
+function buildEmail(state: { sessions?: Array<{ t: number }>; stats?: Record<string, { seen?: number }>; acorns?: number }) {
+  const sessions = state.sessions ?? [];
+  const acorns = typeof state.acorns === "number" ? state.acorns : 0;
+  const learned = Object.values(state.stats ?? {}).filter((s) => (s.seen ?? 0) > 0).length;
+  const streak = streakDays(sessions);
+  const msg = MESSAGES[new Date().getDate() % MESSAGES.length];
+
+  // A zero streak reads as a scold; show total rounds instead.
+  const third = streak > 0
+    ? statTile(streak, "day streak", "#FAEEDA", "#412402", "#854F0B")
+    : statTile(sessions.length, "rounds done", "#FAEEDA", "#412402", "#854F0B");
+
+  const html =
+    `<div style="margin:0;padding:16px;background:#F4F2FB;">` +
+    `<div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #AFA9EC;padding:20px;font-family:Arial,Helvetica,sans-serif;">` +
+    `<p style="margin:0 0 6px;font-size:17px;color:#26215C;font-weight:bold;">\u{1F331} Your tree is waiting, Evia!</p>` +
+    `<p style="margin:0 0 14px;font-size:14px;color:#3C3489;line-height:1.6;">${msg.intro}</p>` +
+    `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-collapse:separate;border-spacing:6px 0;margin:0 0 16px;"><tr>` +
+    statTile(acorns, "acorns", "#EEEDFE", "#26215C", "#534AB7") +
+    statTile(learned, "words learned", "#E1F5EE", "#04342C", "#0F6E56") +
+    third +
+    `</tr></table>` +
+    `<div style="text-align:center;margin:0 0 4px;">` +
+    `<a href="${APP_URL}" style="display:inline-block;background:#534AB7;color:#EEEDFE;font-size:14px;font-weight:bold;padding:10px 22px;border-radius:8px;text-decoration:none;">Keep climbing →</a>` +
+    `</div>` +
+    `<p style="margin:12px 0 0;font-size:11px;color:#7F77DD;text-align:center;">Sent with love by Dad's reminder robot \u{1F330}</p>` +
+    `</div></div>`;
+
+  const text = `Hi Evia!\n\n${msg.intro}\n\n` +
+    `Acorns: ${acorns}\nWords learned: ${learned}\n` +
+    (streak > 0 ? `Day streak: ${streak}\n` : `Rounds done: ${sessions.length}\n`) +
+    `\nKeep climbing: ${APP_URL}\n`;
+
+  return { subject: msg.subject, html, text, stats: { acorns, learned, streak, rounds: sessions.length } };
+}
 
 function laParts(ms: number) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -92,10 +136,12 @@ Deno.serve(async (req: Request) => {
       return json({ sent: false, reason: "practiced_today", rounds: todays.length });
     }
 
+    const email = buildEmail(row.state ?? {});
+
     if (!force && now.hour !== SEND_HOUR) {
-      return json({ sent: false, reason: "outside_send_window", localHour: now.hour });
+      return json({ sent: false, reason: "outside_send_window", localHour: now.hour, stats: email.stats });
     }
-    if (dryRun) return json({ sent: false, reason: "dry_run", wouldSend: true });
+    if (dryRun) return json({ sent: false, reason: "dry_run", wouldSend: true, subject: email.subject, stats: email.stats });
 
     const gmailUser = Deno.env.get("GMAIL_USER");
     const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
@@ -105,7 +151,6 @@ Deno.serve(async (req: Request) => {
     const ins = await admin.from("reminder_log").insert({ day: now.date });
     if (ins.error) return json({ sent: false, reason: "already_sent_today" });
 
-    const msg = MESSAGES[new Date().getDate() % MESSAGES.length];
     const smtp = new SMTPClient({
       connection: {
         hostname: "smtp.gmail.com",
@@ -118,8 +163,9 @@ Deno.serve(async (req: Request) => {
       await smtp.send({
         from: gmailUser,
         to: RECIPIENT,
-        subject: msg.subject,
-        content: msg.body,
+        subject: email.subject,
+        content: email.text,
+        html: email.html,
       });
     } catch (err) {
       // Release the day so a later manual retry can still send.
