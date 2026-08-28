@@ -95,6 +95,72 @@ const SCHEMA = {
   },
 };
 
+
+/* A second, much cheaper mode: one model sentence per word, for the word list
+   screen. No options, no distractors - just a sentence the student can read. */
+const SENTENCE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["sentences"],
+  properties: {
+    sentences: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["wordId", "sentence"],
+        properties: {
+          wordId: { type: "string" },
+          sentence: {
+            type: "string",
+            description: "One original sentence, 10-20 words, using the word in its given sense.",
+          },
+        },
+      },
+    },
+  },
+};
+
+function sentenceSystemPrompt(profile: { name: string; age: string; band: string }) {
+  const young = profile.band === "upper-elementary";
+  return `You write example sentences for ${profile.name}, ${profile.age}, who is building a vocabulary list.
+
+For each word you are given, write ONE sentence that uses it in the sense described. The sentence is there to make the meaning click when he reads back over his word list, so:
+- Put the meaning on display. Someone who did not know the word should be able to guess it from the sentence.
+- Use the exact word form given where that reads naturally; a simple -s/-ed/-ing inflection is fine when the base form would be awkward.
+- Keep it 10 to 20 words, concrete, and about something a child actually encounters - school, family, sport, animals, games, weather.
+- ${young ? "Every OTHER word in the sentence must be easy - the kind of vocabulary a strong ten-year-old reads without stopping. The word being taught is the only hard thing in it." : "Keep the surrounding language simpler than the word being taught."}
+- Do not define the word inside the sentence ("frugal, which means careful with money, ..."). Show it in use instead.
+- Do not reuse any example sentence you are given; write a fresh one.
+- Plain ASCII quotes and apostrophes.`;
+}
+
+async function generateSentences(client: any, words: any[], profile: any) {
+  const lines = words.map((w) =>
+    [`- id: ${w.id}`, `  word: ${w.word}`, `  part of speech: ${w.pos}`,
+     `  meaning: ${w.meaning}`,
+     w.example ? `  a sentence already on file, do not reuse it: ${w.example}` : null,
+    ].filter(Boolean).join("\n"));
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 8000,
+    output_config: { effort: "low", format: { type: "json_schema", schema: SENTENCE_SCHEMA } },
+    system: [{ type: "text", text: sentenceSystemPrompt(profile), cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content:
+      `Write one sentence for each of these ${words.length} words.\n\n${lines.join("\n\n")}\n\nUse each word's exact id.` }],
+  });
+
+  if (response.stop_reason === "refusal") return { error: "refusal" };
+  let parsed: any = (response as any).parsed_output;
+  if (!parsed) {
+    const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+    try { parsed = JSON.parse(text); } catch { return { error: "unparseable" }; }
+  }
+  return { sentences: parsed.sentences ?? [], usage: {
+    input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens } };
+}
+
 function systemPrompt(profile: { name: string; age: string; goal: string; band: string }) {
   const youngLearner = profile.band === "upper-elementary";
 
@@ -132,6 +198,8 @@ Question types, and when to choose them:
 
 Bias toward the types that test USE and understanding (cloze, scen, analogy, syn, ant) over bare definition matching, especially for words the student has already answered correctly a few times. For a word the student keeps getting wrong, choose a type that teaches: cloze or scen with a strongly disambiguating context.
 
+Where a word arrives with a synonym or antonym the student has already been shown, do not simply reuse it as the correct answer to a synonym or antonym question - that tests recall of the sheet rather than understanding. Use a different but equally correct word, or choose another question type.
+
 Every question must be original. Do not copy sentences from the input. Write at a reading level the student can handle, keeping the difficulty in the vocabulary being tested rather than in the surrounding words.
 
 FEEDBACK. Two fields are shown only after a wrong answer, and together they are the most valuable teaching in the app:
@@ -161,6 +229,8 @@ function userPrompt(words: any[]) {
       `  part of speech: ${w.pos}`,
       `  meaning: ${w.meaning}`,
       w.example ? `  example already shown to the student: ${w.example}` : null,
+      w.syn ? `  synonym the student has already been shown: ${w.syn}` : null,
+      w.ant ? `  antonym the student has already been shown: ${w.ant}` : null,
       `  student history: ${status}`,
     ].filter(Boolean).join("\n");
   });
@@ -214,6 +284,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const client = new Anthropic({ apiKey });
+
+    if (body?.mode === "sentences") {
+      const out = await generateSentences(client, words, profile);
+      if (out.error) return json({ error: out.error }, 502);
+      return json(out);
+    }
+
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 16000,
