@@ -7,30 +7,36 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
 <style>
 :root{
-  --bg:#F5F2FA; --surface:#FFFFFF; --surface2:#EAE4F4; --ink:#251A3D; --muted:#6D6288;
-  --brand:#6C3FA6; --brand-deep:#4E2C7A; --brand-soft:#E7DCF7; --on-brand:#FFFFFF;
-  --accent:#DFA22F; --accent-deep:#8A6210;
+  --bg:#FFF3E8; --bg2:#FFE3EC; --surface:#FFFFFF; --surface2:#FBE9E6; --ink:#5C2340; --muted:#A06478;
+  --brand:#E85D8A; --brand-deep:#B03A63; --brand-soft:#FBD9E5; --on-brand:#FFFFFF;
+  --accent:#EFA13A; --accent-deep:#8A5A10;
   --good:#2C9C5A; --good-bg:#E2F4E9; --bad:#D94F30; --bad-bg:#FBE9E3;
-  --line:#D8CFE8; --shadow:rgba(50,30,80,.10);
+  --line:#F6C6D4; --shadow:rgba(150,60,90,.12);
+  --tile-a:#FFE9D6; --tile-a-deep:#8A4B12; --tile-b:#DFF5E4; --tile-b-deep:#1F6B3D;
+  --tile-c:#F3E3FF; --tile-c-deep:#6A3193; --tile-d:#FFE1EC; --tile-d-deep:#A82D5E;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#151022; --surface:#1F1733; --surface2:#2A2044; --ink:#EFEAF9; --muted:#9C8FBC;
-    --brand:#A47FE0; --brand-deep:#3A2760; --brand-soft:#2E2151; --on-brand:#160E28;
+    --bg:#29111C; --bg2:#1E0E24; --surface:#341A27; --surface2:#452232; --ink:#FBE9F0; --muted:#C58FA6;
+    --brand:#F27BA5; --brand-deep:#8A2F53; --brand-soft:#4A2237; --on-brand:#2B0E1B;
     --accent:#F2BC57; --accent-deep:#7A5A10;
     --good:#4CC97E; --good-bg:#173826; --bad:#FF8261; --bad-bg:#3D211A;
-    --line:#3A2D5C; --shadow:rgba(0,0,0,.4);
+    --line:#55293D; --shadow:rgba(0,0,0,.4);
+    --tile-a:#40281A; --tile-a-deep:#F2BC8A; --tile-b:#1D3A29; --tile-b-deep:#8ED9AC;
+    --tile-c:#372345; --tile-c-deep:#D2AEF0; --tile-d:#45202E; --tile-d-deep:#F2A2C2;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#151022; --surface:#1F1733; --surface2:#2A2044; --ink:#EFEAF9; --muted:#9C8FBC;
-  --brand:#A47FE0; --brand-deep:#3A2760; --brand-soft:#2E2151; --on-brand:#160E28;
+  --bg:#29111C; --bg2:#1E0E24; --surface:#341A27; --surface2:#452232; --ink:#FBE9F0; --muted:#C58FA6;
+  --brand:#F27BA5; --brand-deep:#8A2F53; --brand-soft:#4A2237; --on-brand:#2B0E1B;
   --accent:#F2BC57; --accent-deep:#7A5A10;
   --good:#4CC97E; --good-bg:#173826; --bad:#FF8261; --bad-bg:#3D211A;
-  --line:#3A2D5C; --shadow:rgba(0,0,0,.4);
+  --line:#55293D; --shadow:rgba(0,0,0,.4);
+  --tile-a:#40281A; --tile-a-deep:#F2BC8A; --tile-b:#1D3A29; --tile-b-deep:#8ED9AC;
+  --tile-c:#372345; --tile-c-deep:#D2AEF0; --tile-d:#45202E; --tile-d-deep:#F2A2C2;
 }
 *{box-sizing:border-box}
-body{background:var(--bg); color:var(--ink); margin:0; padding:0 16px 48px;
+body{background:var(--bg) linear-gradient(180deg, var(--bg), var(--bg2)) fixed; color:var(--ink); margin:0; padding:0 16px 48px; min-height:100vh;
   font-family:"Atkinson Hyperlegible", "Trebuchet MS", Verdana, sans-serif; font-size:17px; line-height:1.5;}
 h1,h2,h3{font-family:Outfit, "Trebuchet MS", sans-serif; font-weight:600; letter-spacing:.1px; text-wrap:balance;}
 .wrap{max-width:680px; margin:0 auto;}
@@ -38,12 +44,12 @@ header.app{display:flex; align-items:center; justify-content:space-between; gap:
 .logo{display:flex; align-items:center; gap:10px; font-family:Outfit,sans-serif; font-weight:700; font-size:1.3rem;}
 .logo .mark{width:38px;height:38px;border-radius:12px;background:var(--brand);color:var(--on-brand);
   display:grid;place-items:center;font-size:1.2rem; box-shadow:0 3px 0 var(--brand-deep); font-weight:700;}
-.tabs{display:flex; gap:6px; background:var(--surface2); border-radius:14px; padding:5px; width:max-content; margin:0 auto 22px;}
+.tabs{display:flex; gap:6px; background:var(--surface2); border-radius:999px; padding:5px; width:max-content; margin:0 auto 22px;}
 .tabs button{border:0; background:transparent; color:var(--muted); font-family:Outfit,sans-serif; font-weight:500;
-  font-size:.95rem; padding:8px 16px; border-radius:10px; cursor:pointer;}
+  font-size:.95rem; padding:8px 16px; border-radius:999px; cursor:pointer;}
 .tabs button.on{background:var(--surface); color:var(--ink); box-shadow:0 2px 6px var(--shadow);}
 .card{background:var(--surface); border:2px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 4px 0 var(--line); margin-bottom:18px;}
-.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:14px; cursor:pointer;
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:999px; cursor:pointer;
   font-family:Outfit,sans-serif; font-weight:600; font-size:1rem; padding:12px 20px;
   background:var(--surface); color:var(--ink); border:2px solid var(--line); box-shadow:0 3px 0 var(--line);}
 .btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--line);}
@@ -57,9 +63,13 @@ header.app{display:flex; align-items:center; justify-content:space-between; gap:
 .center{text-align:center;}
 .home-hero{padding:30px 22px;}
 .tilerow{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:18px;}
-.tile{background:var(--surface); border:2px solid var(--line); border-radius:14px; padding:14px 16px;}
+.tile{background:var(--surface); border:0; border-radius:16px; padding:14px 16px;}
 .tile .v{font-family:Outfit,sans-serif; font-weight:700; font-size:1.7rem; font-variant-numeric:tabular-nums;}
-.tile .l{color:var(--muted); font-size:.85rem;}
+.tile .l{font-size:.85rem; opacity:.75;}
+.tilerow .tile:nth-child(4n+1){background:var(--tile-a); color:var(--tile-a-deep);}
+.tilerow .tile:nth-child(4n+2){background:var(--tile-b); color:var(--tile-b-deep);}
+.tilerow .tile:nth-child(4n+3){background:var(--tile-c); color:var(--tile-c-deep);}
+.tilerow .tile:nth-child(4n){background:var(--tile-d); color:var(--tile-d-deep);}
 .chip{display:inline-block; border-radius:999px; padding:2px 10px; font-size:.8rem; font-weight:700;}
 .pos-noun{background:rgba(76,110,225,.16);}
 .pos-verb{background:rgba(217,79,48,.16);}
@@ -1148,7 +1158,7 @@ function homeView(){
   return saveBanner() +
     '<div class="card home-hero center">' +
     '<div class="qask">Hi Evia</div>' +
-    '<h1 style="margin:6px 0 4px; font-size:1.9rem;">Ready to climb?</h1>' +
+    '<h1 style="margin:6px 0 4px; font-size:1.9rem;">Ready to climb? &#127800;</h1>' +
     '<p class="muted" style="margin:0 0 20px;">' + esc(sub) + '</p>' +
     '<button class="btn primary" data-act="start">' + (d.today ? 'Start review' : 'Keep climbing') + ' &nbsp;&rarr;</button>' +
     '</div>' +
