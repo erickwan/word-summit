@@ -242,7 +242,7 @@ var LS_KEY = 'word-summit-state-v1';
 var DAY = 86400000;
 var INTERVALS = [0, 1, 3, 7, 14];          // days until next review for box 1..5
 var SESSION_SIZE = 20;
-var NEW_CAP = 8;                            // max brand-new words introduced per round
+var DAILY_NEW = 3;                          // brand-new words introduced per day
 
 var PROFILE = { name:'Evia', age:'a middle schooler', goal:'SSAT vocabulary', band:'middle-school' };
 var GEN_CFG = REMOTE ? { url: REMOTE.url, key: REMOTE.key } : null;
@@ -342,6 +342,24 @@ function dueCounts(){
   return { today:today, fresh:fresh };
 }
 function startOfDay(t){ var d = new Date(t); d.setHours(0,0,0,0); return d.getTime(); }
+function introducedToday(){
+  var t0 = startOfDay(Date.now()), n = 0;
+  Object.keys(state.stats).forEach(function(id){
+    var s = state.stats[id];
+    if (s.first && s.first >= t0) n++;
+  });
+  return n;
+}
+function newAllowance(){ return Math.max(0, DAILY_NEW - introducedToday()); }
+// The next unseen words in curriculum order: easiest decks first (deck ids
+// sort as level-deck), keeping each deck's authored order.
+function curriculumNew(limit){
+  if (limit <= 0) return [];
+  return WORDS.slice()
+    .sort(function(a, b){ return a.deck < b.deck ? -1 : a.deck > b.deck ? 1 : 0; })
+    .filter(function(it){ return st0(it.id).seen === 0; })
+    .slice(0, limit);
+}
 
 /* ---------- small utils ---------- */
 function shuffle(a){ a = a.slice(); for (var i=a.length-1; i>0; i--){ var j = Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
@@ -511,12 +529,11 @@ function buildQueue(deckId){
     var sa = st0(a.id), sb = st0(b.id);
     return (sa.box - sb.box) || (sa.due - sb.due);
   });
-  var q = due.slice(0, SESSION_SIZE);
-  var newbies = [];
-  if (q.length < SESSION_SIZE){
-    newbies = pool.filter(function(it){ return st0(it.id).seen === 0; })
-      .slice(0, Math.min(NEW_CAP, SESSION_SIZE - q.length));
-  }
+  // Today's new words get their round slots reserved ahead of reviews.
+  var newbies = deckId
+    ? deckIndex[deckId].items.filter(function(it){ return st0(it.id).seen === 0; }).slice(0, newAllowance())
+    : curriculumNew(newAllowance());
+  var q = due.slice(0, SESSION_SIZE - newbies.length);
   if (q.length + newbies.length < SESSION_SIZE){
     var chosen = {};
     q.concat(newbies).forEach(function(it){ chosen[it.id] = 1; });
@@ -544,6 +561,9 @@ function prepareRound(deckId){
   built.entries.forEach(function(e){
     if (e.mode !== 'quiz' || seenId[e.item.id]) return;
     seenId[e.item.id] = 1;
+    // Brand-new words are checked with their authored questions, so they
+    // never spend generation budget.
+    if (st0(e.item.id).seen === 0) return;
     words.push({ item: e.item, history: st0(e.item.id) });
   });
   round.promise = QGEN.generateCached(QCACHE, GEN_CFG, words, PROFILE).then(function(r){
@@ -556,7 +576,6 @@ function prepareRound(deckId){
 }
 function prefetchRound(){
   if (prepared || session) return;
-  if (!Object.keys(state.started).length) return;
   prepared = prepareRound(null);
 }
 function startSession(deckId){
@@ -606,6 +625,10 @@ function answer(correct, detail){
     if (!session.types[tk]) session.types[tk] = [0, 0];
     session.types[tk][1]++;
     if (correct) session.types[tk][0]++;
+    if (s.seen === 0){
+      s.first = Date.now();
+      if (!state.started[item.deck]) state.started[item.deck] = true;
+    }
     s.seen++; s.last = Date.now();
     if (correct){
       s.correct++;
@@ -1056,22 +1079,24 @@ function saveBanner(){
 }
 
 function homeView(){
-  var startedDecks = Object.keys(state.started).filter(function(d){ return state.started[d]; });
-  if (!startedDecks.length){
+  var firstDay = !WORDS.some(function(it){ return st0(it.id).seen > 0; });
+  if (firstDay){
     return saveBanner() +
       '<div class="card home-hero center">' +
       '<div class="qask">Hi Evia</div>' +
       '<h1 style="margin:6px 0 4px; font-size:1.9rem;">Welcome to your word summit</h1>' +
-      '<p class="muted" style="margin:0 0 20px;">' + WORDS.length + ' SSAT words are waiting across ' + DECKS.length + ' decks. Pick your first deck to start the climb!</p>' +
-      '<button class="btn primary" data-view="decks">Choose a deck &nbsp;&rarr;</button>' +
+      '<p class="muted" style="margin:0 0 20px;">' + WORDS.length + ' SSAT words are waiting. You&rsquo;ll meet ' + DAILY_NEW + ' new words a day, starting from the easiest deck.</p>' +
+      '<button class="btn primary" data-act="start">Start climbing &nbsp;&rarr;</button>' +
       '</div>';
   }
   var d = dueCounts();
   var seen = WORDS.filter(function(it){ return st0(it.id).seen > 0; }).length;
   var mastered = WORDS.filter(function(it){ return st0(it.id).seen > 0 && st0(it.id).box >= 4; }).length;
-  var sub = d.today
-    ? d.today + (d.today === 1 ? ' word is' : ' words are') + ' ready for review'
-    : (d.fresh ? 'All reviews done — ' + d.fresh + ' new words are waiting in your decks.' : 'All caught up!');
+  var fresh = newAllowance();
+  var bits = [];
+  if (d.today) bits.push(d.today + (d.today === 1 ? ' word' : ' words') + ' to review');
+  if (fresh) bits.push(fresh + ' new ' + (fresh === 1 ? 'word' : 'words') + ' to meet');
+  var sub = bits.length ? bits.join(' and ') + ' today' : 'All caught up for today!';
   return saveBanner() +
     '<div class="card home-hero center">' +
     '<div class="qask">Hi Evia</div>' +
@@ -1086,13 +1111,14 @@ function homeView(){
     '<div class="tile"><div class="v">' + state.sessions.length + '</div><div class="l">rounds</div></div>' +
     '</div>' +
     jarCard() +
-    '<p class="explain center">Reviews mix all the decks you’ve started. Words you miss come back sooner; words you know rest longer as they level up.</p>';
+    '<p class="explain center">' + DAILY_NEW + ' new words join each day, easiest decks first. Words you miss come back sooner; words you know rest longer as they level up.</p>';
 }
 
 function learnView(){
   var item = session.queue[session.idx].item;
   var head = progressHead();
   var blankExample = item.example || '';
+  var antQ = (item.quiz || []).filter(function(t){ return t.type === 'ant'; })[0];
   return head + '<div class="card">' +
     '<div class="newbadge">&#10024; New word</div>' +
     '<div class="learncard">' +
@@ -1101,6 +1127,7 @@ function learnView(){
     '<p class="sentence" style="margin:14px 0 6px;"><b>' + esc(item.meaning) + '</b></p>' +
     (blankExample ? '<p class="sentence muted" style="margin:0;">&ldquo;' + esc(blankExample) + '&rdquo;</p>' : '') +
     (item.syns && item.syns.length ? '<p class="explain" style="margin:10px 0 0;"><b>Similar words:</b> ' + esc(item.syns.join(', ')) + '</p>' : '') +
+    (antQ ? '<p class="explain" style="margin:6px 0 0;"><b>Opposite:</b> ' + esc(antQ.answer) + '</p>' : '') +
     (item.tip ? '<p class="explain" style="margin:6px 0 0;"><b>Using it:</b> ' + esc(item.tip) + '</p>' : '') +
     '</div>' +
     '<div class="center" style="margin-top:20px;"><button class="btn primary" data-act="next">Got it &rarr;</button></div>' +
@@ -1351,7 +1378,7 @@ function parentView(){
         return '<li><b>' + esc(r.it.word) + '</b> ' + accPill(r.a) + ' <span class="muted">level ' + r.s.box + ' &middot; ' + esc(r.it.meaning) + '</span></li>';
       }).join('') + '</ul></div>' : '') +
     deckTable + typeHtml + wordTable + sessionsHtml +
-    '<p class="explain">How it works: new words are introduced a few per round with a preview card, then quizzed. Every word starts at level 1; each right answer moves it up a level with a longer rest (1, 3, 7, then 14 days), and a miss sends it back to level 1. ' +
+    '<p class="explain">How it works: ' + DAILY_NEW + ' new words are introduced each day, easiest decks first, with a preview card before being quizzed. Every word starts at level 1; each right answer moves it up a level with a longer rest (1, 3, 7, then 14 days), and a miss sends it back to level 1. ' +
     (REMOTE ? 'Scores sync to the cloud, so any device with this link shows the same progress.' : 'Scores are stored on this device.') + '</p>';
 }
 
