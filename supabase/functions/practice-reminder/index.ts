@@ -20,6 +20,7 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 const TZ = "America/Los_Angeles";
 const SEND_HOUR = 18; // 6pm–7pm local is the send window
 const RECIPIENT = "evia.kwan@gmail.com";
+const PARENT = "eric.kwan@gmail.com";
 const STATE_ROW = "evia";
 
 const APP_URL = "https://erickwan.github.io/word-summit/";
@@ -79,6 +80,42 @@ function streakDays(sessions: Array<{ t: number }>): number {
   let n = 0;
   while (n < 365 && days.has(laParts(Date.now() - (n + 1) * 86400000).date)) n++;
   return n;
+}
+
+// Consecutive days with no practice, counting today as missed (only called
+// when today's check already came up empty).
+function missedDaysCount(sessions: Array<{ t: number }>): number {
+  const days = new Set(sessions.map((s) => laParts(s.t).date));
+  let n = 1;
+  while (n < 365 && !days.has(laParts(Date.now() - n * 86400000).date)) n++;
+  return n;
+}
+
+// Alert the parent when a lapse reaches 2 days, then every 3 days while it
+// continues. Never for a student with no history at all — an empty cloud row
+// is more likely a sync problem than a real lapse.
+function parentAlertDue(sessions: Array<{ t: number }>, missed: number): boolean {
+  return sessions.length > 0 && missed >= 2 && (missed - 2) % 3 === 0;
+}
+
+function buildParentEmail(state: { sessions?: Array<{ t: number }> }, missed: number) {
+  const sessions = state.sessions ?? [];
+  const lastT = sessions.reduce((m, s) => Math.max(m, s.t), 0);
+  const last = lastT ? laParts(lastT).date : "never";
+  const subject = `Evia has missed ${missed} days of Word Summit practice`;
+  const text =
+    `Evia hasn't practiced for ${missed} days in a row (nothing yet today as of 6:30pm).\n` +
+    `Her last practice round was ${last}.\n\n` +
+    `She's been sent her usual reminder email, but a check-in in person might help.\n` +
+    `Progress details are in the Parent tab: ${APP_URL}\n`;
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#26215C;line-height:1.6;max-width:420px;">` +
+    `<p style="margin:0 0 10px;"><b>Evia hasn't practiced for ${missed} days in a row</b> (nothing yet today as of 6:30pm).</p>` +
+    `<p style="margin:0 0 10px;">Her last practice round was <b>${last}</b>.</p>` +
+    `<p style="margin:0 0 10px;">She's been sent her usual reminder email, but a check-in in person might help.</p>` +
+    `<p style="margin:0;"><a href="${APP_URL}" style="color:#534AB7;">Progress details in the Parent tab →</a></p>` +
+    `</div>`;
+  return { subject, text, html };
 }
 
 function statTile(value: number, label: string, bg: string, dark: string, mid: string): string {
@@ -178,11 +215,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const email = buildEmail(row.state ?? {});
+    const missed = missedDaysCount(sessions);
+    const alertParent = parentAlertDue(sessions, missed);
 
     if (!force && now.hour !== SEND_HOUR) {
-      return json({ sent: false, reason: "outside_send_window", localHour: now.hour, stats: email.stats });
+      return json({ sent: false, reason: "outside_send_window", localHour: now.hour, stats: email.stats, missedDays: missed });
     }
-    if (dryRun) return json({ sent: false, reason: "dry_run", wouldSend: true, subject: email.subject, quote: email.quote, stats: email.stats });
+    if (dryRun) return json({ sent: false, reason: "dry_run", wouldSend: true, subject: email.subject, quote: email.quote, stats: email.stats, missedDays: missed, wouldAlertParent: alertParent });
 
     const gmailUser = Deno.env.get("GMAIL_USER");
     const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
@@ -200,6 +239,8 @@ Deno.serve(async (req: Request) => {
         auth: { username: gmailUser, password: gmailPass },
       },
     });
+    let parentSent = false;
+    let parentError: string | null = null;
     try {
       await smtp.send({
         from: gmailUser,
@@ -211,12 +252,28 @@ Deno.serve(async (req: Request) => {
     } catch (err) {
       // Release the day so a later manual retry can still send.
       await admin.from("reminder_log").delete().eq("day", now.date);
-      return json({ sent: false, reason: "smtp_failed", detail: String((err as Error)?.message || err) }, 502);
-    } finally {
       try { await smtp.close(); } catch { /* already closed */ }
+      return json({ sent: false, reason: "smtp_failed", detail: String((err as Error)?.message || err) }, 502);
     }
+    if (alertParent) {
+      const parent = buildParentEmail(row.state ?? {}, missed);
+      try {
+        await smtp.send({
+          from: gmailUser,
+          to: PARENT,
+          subject: parent.subject,
+          content: parent.text,
+          html: parent.html,
+        });
+        parentSent = true;
+      } catch (err) {
+        parentError = String((err as Error)?.message || err);
+      }
+    }
+    try { await smtp.close(); } catch { /* already closed */ }
 
-    return json({ sent: true, to: RECIPIENT, day: now.date });
+    return json({ sent: true, to: RECIPIENT, day: now.date, missedDays: missed,
+      parentAlert: alertParent ? { sent: parentSent, to: PARENT, error: parentError } : null });
   } catch (err) {
     return json({ error: "unexpected", detail: String((err as Error)?.message || err) }, 500);
   }
