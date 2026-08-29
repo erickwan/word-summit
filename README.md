@@ -6,7 +6,7 @@ A spaced-repetition SSAT vocabulary trainer for Evia, hosted on GitHub Pages.
 - **Decks**: Evia starts decks when she's ready; new words are introduced a few per round with a preview card before being quizzed.
 - **Practice**: 10-question rounds mixing four question types — pick the meaning, pick the word, fill in the blank (typing, with spelling tolerance), and letter-tile unscramble.
 - **Scheduling**: Leitner boxes. Each correct first-try answer moves a word up a level with a longer rest (1, 3, 7, 14 days); a miss sends it back to level 1 and repeats it in the round. Review rounds mix all started decks.
-- **Parent tab**: mastery/struggle summary, per-deck and per-word accuracy, session history, accuracy by question type.
+- **Progress tab**: mastery/struggle summary, per-deck and per-word accuracy, session history, accuracy by question type.
 - **Scores** sync via Supabase (with localStorage fallback), so progress is shared across devices.
 
 Static files (`index.html` + `words.js`), no build step.
