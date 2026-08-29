@@ -228,6 +228,28 @@ ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 @media (prefers-reduced-motion: reduce){
   .tt-roar .tt-body,.tt-happy .tt-body,.tt-gentle .tt-body,.tt-offer .tt-arm{animation:none;}
 }
+/* --- 14-day levels chart --- */
+/* Sequential violet, stepped per theme against that theme's surface (not flipped):
+   on light, further progress = darker; on dark, further progress = brighter. */
+:root{ --lv0:#FBD3E0; --lv1:#E85D8A; --lv2:#7E1F3F; }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --lv0:#6B2038; --lv1:#D4527C; --lv2:#FBD3E0; }
+}
+:root[data-theme="dark"]{ --lv0:#6B2038; --lv1:#D4527C; --lv2:#FBD3E0; }
+.lv-legend{display:flex; flex-wrap:wrap; gap:14px; margin:10px 0 4px; font-size:.86rem;}
+.lv-key{display:inline-flex; align-items:center; gap:6px; color:var(--ink);}
+.lv-key i{width:12px; height:12px; border-radius:3px; display:inline-block; flex:0 0 auto;}
+.lv-key b{font-weight:700;}
+.lv-chart{position:relative; margin-top:2px;}
+.lv-chart svg{width:100%; height:auto; display:block; overflow:visible;}
+.lv-hit{cursor:crosshair;}
+.lv-tip{position:absolute; pointer-events:none; background:var(--surface); color:var(--ink);
+  border:2px solid var(--line); border-radius:10px; padding:7px 10px; font-size:.82rem;
+  box-shadow:0 4px 14px var(--shadow); white-space:nowrap; transform:translate(-50%,-100%); z-index:3;}
+.lv-tip .r{display:flex; align-items:center; gap:6px; margin-top:2px;}
+.lv-tip i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+.lv-tip .d{font-weight:700;}
+@media (prefers-reduced-motion: reduce){ .lv-cross{transition:none;} }
 #confetti{position:fixed; inset:0; pointer-events:none;}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
 @media (max-width:480px){
@@ -272,7 +294,7 @@ WORDS.forEach(function(w){
   deckIndex[w.deck].items.push(w);
 });
 
-var state = { savedAt:0, sessions:[], stats:{}, started:{}, acorns:0 };
+var state = { savedAt:0, sessions:[], stats:{}, started:{}, acorns:0, levelHistory:{} };
 var dirty = false;
 try {
   var raw = localStorage.getItem(LS_KEY);
@@ -283,10 +305,42 @@ try {
 } catch (e) {}
 if (!state.started) state.started = {};
 if (typeof state.acorns !== 'number') state.acorns = 0;
+if (!state.levelHistory) state.levelHistory = {};
 
 function saveLocal(){
+  snapshotLevels();
   try { state.savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   if (REMOTE) dirty = true;
+}
+
+
+/* ---------- daily level snapshot ----------
+   Only the current level of each word is stored, so a trend has to be recorded
+   as it happens; it cannot be reconstructed afterwards. One entry per day,
+   rewritten as the day goes on, kept for two months. Levels collapse to the
+   same three groups the word list filters by, because five one-hue bands are
+   not tellable apart on a chart. */
+var LEVEL_HISTORY_DAYS = 60;
+function dayKey(t){
+  var d = new Date(t);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function levelCounts(){
+  var needs = 0, learning = 0, mastered = 0;
+  WORDS.forEach(function(it){
+    var t = st0(it.id);
+    if (t.seen === 0) return;              // not introduced yet, so not on the chart
+    if (t.box >= 4) mastered++;
+    else if (t.box === 3) learning++;
+    else needs++;
+  });
+  return [needs, learning, mastered];
+}
+function snapshotLevels(){
+  if (!state.levelHistory) state.levelHistory = {};
+  state.levelHistory[dayKey(Date.now())] = levelCounts();
+  var keys = Object.keys(state.levelHistory).sort();
+  while (keys.length > LEVEL_HISTORY_DAYS) delete state.levelHistory[keys.shift()];
 }
 
 /* ---------- cloud sync (Supabase REST) ---------- */
@@ -327,6 +381,10 @@ function mergeRemote(remote){
   if (typeof remote.acorns === 'number' && remote.acorns > (state.acorns || 0)){
     state.acorns = remote.acorns; changed = true;
   }
+  // Union the day snapshots; a day recorded on another device is still true here.
+  Object.keys(remote.levelHistory || {}).forEach(function(k){
+    if (!state.levelHistory[k]){ state.levelHistory[k] = remote.levelHistory[k]; changed = true; }
+  });
   return changed;
 }
 async function persist(){
@@ -1360,6 +1418,171 @@ function decksView(){
   return html;
 }
 
+
+/* ---------- 14-day progress chart ----------
+   Sequential violet ramp: the further a word has climbed, the stronger the
+   colour. Steps are chosen per theme against that theme's surface rather than
+   flipped, and validated for adjacent separation (normal-vision dE ~24). */
+var LEVEL_BANDS = [
+  { key:'needs',    label:'Needs work', hint:'levels 1-2' },
+  { key:'learning', label:'Learning',   hint:'level 3' },
+  { key:'mastered', label:'Mastered',   hint:'levels 4-5' }
+];
+var showLevelTable = false;
+
+/* Boxes only move when she answers, so a day with no practice genuinely holds
+   the previous day's distribution. Carry forward, but never before the first
+   real snapshot - that would invent history. */
+function levelSeries(days){
+  var hist = state.levelHistory || {};
+  var keys = Object.keys(hist).sort();
+  if (!keys.length) return [];
+  var out = [], carry = null, today = new Date();
+  for (var i = days - 1; i >= 0; i--){
+    var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+    var k = dayKey(d.getTime());
+    if (hist[k]) carry = hist[k];
+    else if (carry === null && keys[0] < k){
+      var prior = keys.filter(function(x){ return x < k; });
+      if (prior.length) carry = hist[prior[prior.length - 1]];
+    }
+    out.push({ key:k, date:d, counts: carry ? carry.slice() : null });
+  }
+  return out;
+}
+
+
+/* Crosshair + tooltip. Re-bound on each render because the view is re-rendered
+   wholesale rather than patched. */
+function wireLevelChart(){
+  var host = document.querySelector('.lv-chart');
+  if (!host || host.dataset.wired) return;
+  host.dataset.wired = '1';
+  var svg = host.querySelector('svg'), tip = host.querySelector('.lv-tip');
+  var cross = host.querySelector('.lv-cross');
+  function hide(){ tip.hidden = true; if (cross) cross.setAttribute('opacity','0'); }
+  host.addEventListener('mouseleave', hide);
+  host.addEventListener('mousemove', function(e){
+    var t = e.target;
+    if (!t || !t.classList || !t.classList.contains('lv-hit')) return;
+    var parts = (t.dataset.tip || '').split('|');
+    var box = host.getBoundingClientRect();
+    var scale = box.width / svg.viewBox.baseVal.width;
+    var cx = parseFloat(t.dataset.cx) * scale;
+    if (cross){
+      cross.setAttribute('x1', t.dataset.cx); cross.setAttribute('x2', t.dataset.cx);
+      cross.setAttribute('opacity', '.35');
+    }
+    var rows = LEVEL_BANDS.map(function(b, i){
+      return '<div class="r"><i style="background:var(--lv' + i + ')"></i>' + b.label +
+             ' <b>' + (parts[i+1] === undefined ? '-' : parts[i+1]) + '</b></div>';
+    }).join('');
+    tip.innerHTML = '<div class="d">' + parts[0] + '</div>' + rows;
+    tip.hidden = false;
+    tip.style.left = Math.min(Math.max(cx, 60), box.width - 60) + 'px';
+    tip.style.top = (box.height - 34) + 'px';
+  });
+}
+
+function progressChart(){
+  var days = levelSeries(14);
+  var recorded = days.filter(function(d){ return d.counts; });
+  var distinct = Object.keys(state.levelHistory || {}).length;
+
+  if (!recorded.length){
+    return '<div class="card"><h3 style="margin:0 0 4px;">Levels over the last 14 days</h3>' +
+      '<p class="explain" style="margin:0;">Nothing recorded yet. A snapshot is taken each day Evia practises, and the chart appears once there is something to plot.</p></div>';
+  }
+
+  var W = 660, H = 210, padL = 34, padR = 12, padT = 12, padB = 26;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var maxTotal = Math.max(1, ...recorded.map(function(d){ return d.counts[0] + d.counts[1] + d.counts[2]; }));
+  var yMax = Math.max(4, Math.ceil(maxTotal * 1.15));
+  var x = function(i){ return padL + (days.length === 1 ? plotW/2 : (plotW * i) / (days.length - 1)); };
+  var y = function(v){ return padT + plotH - (plotH * v) / yMax; };
+
+  // stack from the bottom: needs work, then learning, then mastered
+  var bandPaths = '';
+  for (var b = 0; b < 3; b++){
+    var upper = [], lower = [];
+    days.forEach(function(d, i){
+      if (!d.counts) return;
+      var below = 0; for (var q = 0; q < b; q++) below += d.counts[q];
+      upper.push([x(i), y(below + d.counts[b])]);
+      lower.push([x(i), y(below)]);
+    });
+    if (upper.length < 1) continue;
+    var dPath = 'M' + upper.map(function(p){ return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('L') +
+      'L' + lower.reverse().map(function(p){ return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('L') + 'Z';
+    bandPaths += '<path d="' + dPath + '" fill="var(--lv' + b + ')" stroke="var(--surface)" stroke-width="2" stroke-linejoin="round"/>';
+  }
+
+  // recessive gridlines + y labels
+  var grid = '', ticks = 4;
+  for (var g = 0; g <= ticks; g++){
+    var v = Math.round((yMax / ticks) * g), gy = y(v);
+    grid += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) +
+      '" stroke="var(--line)" stroke-width="1" opacity=".55"/>' +
+      '<text x="' + (padL - 7) + '" y="' + (gy + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--muted)">' + v + '</text>';
+  }
+  // date labels at the ends and the middle only, so they never collide
+  var dateLbl = '';
+  [0, Math.floor((days.length-1)/2), days.length-1].forEach(function(i){
+    var d = days[i].date;
+    var t = d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+    dateLbl += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' +
+      (i === 0 ? 'start' : i === days.length-1 ? 'end' : 'middle') + '" font-size="10" fill="var(--muted)">' + t + '</text>';
+  });
+
+  // one hover column per day: crosshair + tooltip
+  var hits = days.map(function(d, i){
+    var w = plotW / Math.max(1, days.length - 1);
+    var cx = x(i);
+    var tip = d.counts
+      ? d.date.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + '|' +
+        d.counts[0] + '|' + d.counts[1] + '|' + d.counts[2]
+      : d.date.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + '|-|-|-';
+    return '<rect class="lv-hit" x="' + (cx - w/2).toFixed(1) + '" y="' + padT + '" width="' + w.toFixed(1) +
+      '" height="' + plotH + '" fill="transparent" data-tip="' + tip + '" data-cx="' + cx.toFixed(1) + '"></rect>';
+  }).join('');
+
+  var now = levelCounts();
+  var legend = '<div class="lv-legend">' + LEVEL_BANDS.map(function(bnd, i){
+    return '<span class="lv-key"><i style="background:var(--lv' + i + ')"></i>' + bnd.label +
+      ' <b>' + now[i] + '</b> <span class="muted">' + bnd.hint + '</span></span>';
+  }).join('') + '</div>';
+
+  var table = '';
+  if (showLevelTable){
+    table = '<div class="tblwrap" style="margin-top:10px;"><table><thead><tr><th>Day</th>' +
+      LEVEL_BANDS.map(function(b){ return '<th>' + b.label + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>' +
+      days.slice().reverse().map(function(d){
+        if (!d.counts) return '<tr><td>' + d.date.toLocaleDateString(undefined,{month:'short',day:'numeric'}) +
+          '</td><td colspan="4" class="muted">not recorded</td></tr>';
+        var tot = d.counts[0]+d.counts[1]+d.counts[2];
+        return '<tr><td>' + d.date.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + '</td>' +
+          d.counts.map(function(c){ return '<td>' + c + '</td>'; }).join('') + '<td>' + tot + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  var note = distinct < 2
+    ? '<p class="explain" style="margin:6px 0 0;">Only today is recorded so far &mdash; the line fills in as she practises on more days.</p>'
+    : '';
+
+  return '<div class="card">' +
+    '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
+      '<h3 style="margin:0;">Levels over the last 14 days</h3>' +
+      '<button class="btn small" data-act="lv-table">' + (showLevelTable ? 'Hide numbers' : 'Show numbers') + '</button>' +
+    '</div>' +
+    legend +
+    '<div class="lv-chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
+      'aria-label="Stacked area chart of how many words sit at each level over the last 14 days">' +
+      grid + bandPaths + dateLbl + hits +
+      '<line class="lv-cross" x1="0" x2="0" y1="' + padT + '" y2="' + (padT + plotH) + '" stroke="var(--ink)" stroke-width="1" opacity="0"/>' +
+    '</svg><div class="lv-tip" hidden></div></div>' +
+    note + table + '</div>';
+}
+
 function parentView(){
   var d = dueCounts();
   var seenRows = WORDS.map(function(it){ return { it:it, s:st0(it.id) }; })
@@ -1435,6 +1658,7 @@ function parentView(){
     '<div class="tile"><div class="v">' + mastered.length + '</div><div class="l">mastered (level 4+)</div></div>' +
     '<div class="tile"><div class="v">' + struggling.length + '</div><div class="l">struggling (&lt;60%)</div></div>' +
     '</div>' +
+    progressChart() +
     (focus.length ? '<div class="card"><h3 style="margin:0 0 4px;">Needs the most practice</h3><ul class="tricky">' +
       focus.map(function(r){
         return '<li><b>' + esc(r.it.word) + '</b> ' + accPill(r.a) + ' <span class="muted">level ' + r.s.box + ' &middot; ' + esc(r.it.meaning) + '</span></li>';
@@ -1466,6 +1690,7 @@ function render(){
   root.innerHTML = html;
   if (session && !session.done && session.q && session.q.type === 'scramble' && !session.answered) renderScramble();
   watchClips();
+  wireLevelChart();
   if (session && session.done && session.earned && !session.showered){
     session.showered = true;
     var host = document.getElementById('totoro-scene');
@@ -1570,6 +1795,7 @@ root.addEventListener('click', function(e){
   if (act === 'finish'){ session = null; render(); return; }
   if (act === 'submit-typed'){ submitTyped(); return; }
   if (act === 'scr-undo'){ if (!session.answered && scr.picked.length){ scr.picked.pop(); renderScramble(); } return; }
+  if (act === 'lv-table'){ showLevelTable = !showLevelTable; render(); return; }
   if (act === 'save-now'){
     t.disabled = true; t.textContent = 'Syncing…';
     persist().then(function(r){
