@@ -277,6 +277,7 @@ var LS_KEY = 'word-summit-state-v1';
 var DAY = 86400000;
 var INTERVALS = [0, 1, 3, 7, 14];          // days until next review for box 1..5
 var SESSION_SIZE = 20;
+var MIN_QUESTIONS = 15;                     // pad short rounds with encore passes
 var DAILY_NEW = 3;                          // brand-new words introduced per day
 
 var PROFILE = { name:'Evia', age:'a middle schooler', goal:'SSAT vocabulary', band:'middle-school' };
@@ -559,13 +560,20 @@ function checkTyped(input, word){
 }
 
 /* ---------- question generation ---------- */
+function noteAsked(id, type){
+  if (!session) return;
+  if (!session.asked) session.asked = {};
+  (session.asked[id] = session.asked[id] || {})[type] = 1;
+}
 function makeQuestion(item, entry){
   var isNew = st0(item.id).seen === 0;
   // Freshly generated question for this word, when one came back. A repeat of a
-  // missed word falls through to the local generator so it isn't the same twice.
-  if (session && session.gen && session.gen[item.id] && !(entry && entry.retry)){
+  // missed word or an encore pass falls through to the local generator so the
+  // same question isn't shown twice.
+  if (session && session.gen && session.gen[item.id] && !(entry && (entry.retry || entry.encore))){
     var g = session.gen[item.id];
     QCACHE.consume(item.id);   // asked now, so the next review gets a new one
+    noteAsked(item.id, g.type);
     return { item:item, type:g.type, prompt:g.prompt, options: shuffle(g.options.slice()),
              answer:g.answer, teach:g.teach, why:g.why || {}, isNew:isNew, generated:true };
   }
@@ -576,7 +584,12 @@ function makeQuestion(item, entry){
   if (!isNew){
     (item.quiz || []).forEach(function(t){ types.push(t.type, t.type); });   // authored usage questions, double weight
   }
-  var type = pick(types);
+  // Prefer angles this word hasn't been asked from yet this round, so encore
+  // passes feel like new questions rather than reruns.
+  var asked = (session && session.asked && session.asked[item.id]) || {};
+  var freshTypes = types.filter(function(t){ return !asked[t]; });
+  var type = pick(freshTypes.length ? freshTypes : types);
+  noteAsked(item.id, type);
   var q = { item:item, type:type, isNew:isNew };
   if (type === 'syn' || type === 'ant' || type === 'cloze' || type === 'scen'){
     var authored = (item.quiz || []).filter(function(t){ return t.type === type; })[0];
@@ -665,6 +678,18 @@ function buildQueue(deckId){
     entries.splice(Math.min(i * 2, entries.length), 0, { item:it, mode:'learn' });
   });
   newbies.forEach(function(it){ entries.push({ item:it, mode:'quiz', retry:false }); });
+  // Early on there is little to review, which would leave a short round. Give
+  // the round's words encore passes instead — each from a different angle, and
+  // none of them moves a word's review schedule, so a word still advances at
+  // most one Leitner level per round. New words come first in the rotation.
+  var questions = q.length + newbies.length;
+  var cycle = newbies.concat(q);
+  if (questions < MIN_QUESTIONS && cycle.length){
+    var extra = Math.min(MIN_QUESTIONS - questions, cycle.length * 4);
+    for (var k = 0; k < extra; k++){
+      entries.push({ item: cycle[k % cycle.length], mode:'quiz', retry:false, encore:true });
+    }
+  }
   return { entries:entries, total:q.length + newbies.length };
 }
 /* A round is prepared (queue built + questions requested) before the student
@@ -738,7 +763,7 @@ function answer(correct, detail){
   var entry = session.queue[session.idx];
   var item = entry.item;
   var s = st(item.id);
-  if (!entry.retry){
+  if (!entry.retry && !entry.encore){
     session.firstTry[item.id] = correct;
     var tk = session.q.type;
     if (!session.types[tk]) session.types[tk] = [0, 0];
