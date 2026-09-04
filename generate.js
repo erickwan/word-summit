@@ -127,6 +127,7 @@ var QGEN = (function () {
         return {
           id: w.item.id, word: w.item.word, pos: w.item.pos,
           meaning: w.item.meaning, example: w.item.example,
+          recent: w.recent || [],
           level: w.item.level, history: w.history
         };
       })
@@ -193,6 +194,44 @@ var QGEN = (function () {
     };
   }
 
+  /* What has already been asked about each word.
+     Without this the service receives an identical payload every time a word
+     comes up for review, and returns near-identical questions — the same type,
+     the same setting, even the same wrong options. Sending the last few asks
+     back lets it deliberately do something different. Kept on the device
+     rather than in the synced state, so an older cached build cannot wipe it. */
+  function AskLog(key, keepPerWord, maxAgeMs) {
+    var store = {};
+    try { store = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch (e) { store = {}; }
+    var now = Date.now();
+    Object.keys(store).forEach(function (id) {
+      store[id] = (store[id] || []).filter(function (e) { return now - (e.t || 0) <= maxAgeMs; });
+      if (!store[id].length) delete store[id];
+    });
+    function flush() {
+      try { localStorage.setItem(key, JSON.stringify(store)); } catch (e) {}
+    }
+    return {
+      note: function (id, type, prompt, options, answer) {
+        if (!id || !type) return;
+        var opts = (options || []).filter(function (o) { return o !== answer; })
+          .map(function (o) { return String(o); }).slice(0, 3);
+        var entry = { t: Date.now(), type: type, gist: String(prompt || "").slice(0, 90), opts: opts };
+        store[id] = (store[id] || []).concat([entry]).slice(-keepPerWord);
+        flush();
+      },
+      recent: function (id) {
+        return (store[id] || []).map(function (e) {
+          return { type: e.type, gist: e.gist, opts: e.opts || [] };
+        });
+      },
+      lastType: function (id) {
+        var l = store[id] || [];
+        return l.length ? l[l.length - 1].type : null;
+      }
+    };
+  }
+
   // Generate only for words with no fresh cached question, then merge.
   function generateCached(cache, config, words, profile) {
     var have = {}, need = [];
@@ -216,5 +255,6 @@ var QGEN = (function () {
     });
   }
 
-  return { generate: generate, generateCached: generateCached, validate: validate, Cache: Cache };
+  return { generate: generate, generateCached: generateCached, validate: validate,
+           Cache: Cache, AskLog: AskLog };
 })();

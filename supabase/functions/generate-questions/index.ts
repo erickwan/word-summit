@@ -193,12 +193,27 @@ Question types, and when to choose them:
 - ant: pick the opposite. ONLY when the word has a real, commonly understood opposite. Otherwise choose another type.
 - cloze: write a NEW sentence, different in situation from the example sentence given, with exactly one ___ where the word belongs. The surrounding context must make only the target word fit its meaning, and all wrong options must be the same part of speech and grammatically flawless in the blank, excluded purely on meaning. The target word must not appear anywhere in the sentence.
 - scen: "Which of these is an example of ...?" with three short situations. All three must share the same setting so the setting itself gives nothing away; the wrong two are near misses that get the topic right and the essence wrong.
-- analogy: "A is to B as C is to ___" using the target word's relationship. Only when the relationship is clean and a middle schooler can see it. Keep the paired words familiar.
-- oddone: three or four words of which all but one share something with the target word's meaning. Only when the grouping is unambiguous.
+- analogy: "A is to B as C is to ___" using the target word's relationship. Keep the paired words familiar so the difficulty sits in the target word.
+- oddone: three or four words of which all but one share something with the target word's meaning. Make the grouping unambiguous.
+
+analogy and oddone are real options, not last resorts. Reach for them whenever the word supports one - especially for a word already asked as meaning, wordpick or cloze. Only skip a type if it genuinely cannot be written well for this word.
 
 Bias toward the types that test USE and understanding (cloze, scen, analogy, syn, ant) over bare definition matching, especially for words the student has already answered correctly a few times. For a word the student keeps getting wrong, choose a type that teaches: cloze or scen with a strongly disambiguating context.
 
 Where a word arrives with a synonym or antonym the student has already been shown, do not simply reuse it as the correct answer to a synonym or antonym question - that tests recall of the sheet rather than understanding. Use a different but equally correct word, or choose another question type.
+
+NEVER REPEAT YOURSELF. Some words arrive with a list of what has already been
+asked about them. That list is the single most important constraint here: this
+student practises the same word many times and complains when the questions feel
+the same. For any word with such a list you MUST:
+- choose a type that is not in the list;
+- set the question somewhere unrelated to the situations already used - a new
+  place, a new activity, new people;
+- pick wrong options that are not the ones already used, unless a repeat is
+  genuinely the best possible distractor;
+- avoid echoing distinctive nouns from the earlier questions.
+Each word also arrives with a suggested domain. Use it as the setting for any
+sentence or scenario you write, unless the word makes that impossible.
 
 Every question must be original. Do not copy sentences from the input. Write at a reading level the student can handle, keeping the difficulty in the vocabulary being tested rather than in the surrounding words.
 
@@ -210,6 +225,36 @@ FEEDBACK. Two fields are shown only after a wrong answer, and together they are 
 Every wrong option must have a distractors entry, and the "option" text must match that option exactly.
 
 Use plain ASCII quotes and apostrophes throughout.`;
+}
+
+const DOMAINS = [
+  "school or classroom", "a sports team or a game", "cooking or a family meal",
+  "hiking, camping or the outdoors", "space or a science experiment",
+  "history or an old story", "music or theatre", "a trip or journey",
+  "animals or a pet", "computers, phones or games", "weather or the seasons",
+  "a neighbourhood or city street", "a job or running a small business",
+  "friends and a disagreement between them",
+];
+
+/* What the student has already been asked about this word. The last two types
+   are ruled out outright; the situations and options are listed so the model can
+   steer away from them. */
+function recentLines(recent: any[]): string | null {
+  const list = (recent || []).filter((r) => r && r.type);
+  if (!list.length) return null;
+  const shown = list.slice(-3);
+  const banned = [...new Set(list.slice(-2).map((r) => r.type))];
+  const items = shown.map((r) => {
+    const bits = [r.type];
+    if (r.gist) bits.push(`asked as: "${String(r.gist).replace(/"/g, "'")}"`);
+    if (r.opts && r.opts.length) bits.push(`wrong options used: ${r.opts.join(", ")}`);
+    return `    * ${bits.join(" | ")}`;
+  });
+  return [
+    `  ALREADY ASKED - do not repeat the type, the situation, or the wrong options:`,
+    ...items,
+    `  do NOT use these types for this word: ${banned.join(", ")}`,
+  ].join("\n");
 }
 
 function userPrompt(words: any[]) {
@@ -232,6 +277,8 @@ function userPrompt(words: any[]) {
       w.syn ? `  synonym the student has already been shown: ${w.syn}` : null,
       w.ant ? `  antonym the student has already been shown: ${w.ant}` : null,
       `  student history: ${status}`,
+      `  suggested domain for the setting: ${DOMAINS[Math.floor(Math.random() * DOMAINS.length)]}`,
+      recentLines(w.recent),
     ].filter(Boolean).join("\n");
   });
 

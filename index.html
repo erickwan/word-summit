@@ -283,6 +283,9 @@ var DAILY_NEW = 3;                          // brand-new words introduced per da
 var PROFILE = { name:'Evia', age:'a middle schooler', goal:'SSAT vocabulary', band:'middle-school' };
 var GEN_CFG = REMOTE ? { url: REMOTE.url, key: REMOTE.key } : null;
 var QCACHE = QGEN.Cache('word-summit-qcache-v1', 14 * 86400000);
+// Two months of what each word has been asked, so a review can be told to do
+// something different. Device-local, like the question cache.
+var QASKS = QGEN.AskLog('word-summit-asklog-v1', 4, 60 * 86400000);
 
 var LEVELS = { 1:'Essential', 2:'Intermediate', 3:'Advanced' };
 var DECKS = [];
@@ -573,6 +576,7 @@ function makeQuestion(item, entry){
   if (session && session.gen && session.gen[item.id] && !(entry && (entry.retry || entry.encore))){
     var g = session.gen[item.id];
     QCACHE.consume(item.id);   // asked now, so the next review gets a new one
+    QASKS.note(item.id, g.type, g.prompt, g.options, g.answer);
     noteAsked(item.id, g.type);
     return { item:item, type:g.type, prompt:g.prompt, options: shuffle(g.options.slice()),
              answer:g.answer, teach:g.teach, why:g.why || {}, isNew:isNew, generated:true };
@@ -587,7 +591,9 @@ function makeQuestion(item, entry){
   // Prefer angles this word hasn't been asked from yet this round, so encore
   // passes feel like new questions rather than reruns.
   var asked = (session && session.asked && session.asked[item.id]) || {};
-  var freshTypes = types.filter(function(t){ return !asked[t]; });
+  var lastType = QASKS.lastType(item.id);
+  var freshTypes = types.filter(function(t){ return !asked[t] && t !== lastType; });
+  if (!freshTypes.length) freshTypes = types.filter(function(t){ return !asked[t]; });
   var type = pick(freshTypes.length ? freshTypes : types);
   noteAsked(item.id, type);
   var q = { item:item, type:type, isNew:isNew };
@@ -597,6 +603,7 @@ function makeQuestion(item, entry){
       q.prompt = authored.prompt || '';
       q.options = shuffle(authored.options.slice());
       q.answer = authored.answer;
+      QASKS.note(item.id, q.type, q.prompt, q.options, q.answer);
       return q;
     }
     q.type = type = 'meaning';   // no authored question for this type; fall through
@@ -648,6 +655,8 @@ function makeQuestion(item, entry){
     q.letters = letters;
     q.answer = w;
   }
+  QASKS.note(item.id, q.type, q.prompt || (q.blank ? q.blank.before + '___' + q.blank.after : ''),
+             q.options, q.answer);
   return q;
 }
 
@@ -708,7 +717,7 @@ function prepareRound(deckId){
     // Brand-new words are checked with their authored questions, so they
     // never spend generation budget.
     if (st0(e.item.id).seen === 0) return;
-    words.push({ item: e.item, history: st0(e.item.id) });
+    words.push({ item: e.item, history: st0(e.item.id), recent: QASKS.recent(e.item.id) });
   });
   round.promise = QGEN.generateCached(QCACHE, GEN_CFG, words, PROFILE).then(function(r){
     round.questions = r.questions || {};
