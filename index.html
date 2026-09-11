@@ -179,54 +179,50 @@ ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 .grouphdr:first-of-type{border-top:0; padding-top:0; margin-top:4px;}
 .grouphdr h3{margin:0; font-size:1rem;}
 .grouphdr .n{color:var(--muted); font-size:.85rem;}
-/* --- Totoro end-of-round scene --- */
-.totoro-scene{position:relative; display:flex; justify-content:center; align-items:center; margin:4px 0 2px; min-height:206px;}
-.totoro{width:210px; height:auto; overflow:visible;}
-.tt-body{transform-origin:110px 200px;}
-.tt-arm{transform-origin:150px 120px;}
-@keyframes tt-bounce{
+/* --- goldendoodle end-of-round scene --- */
+.pup-scene{position:relative; display:flex; justify-content:center; align-items:center; margin:4px 0 2px; min-height:206px;}
+.pup{width:210px; height:auto; overflow:visible;}
+.pp-body{transform-origin:134px 214px;}
+@keyframes pp-bounce{
   0%,100%{transform:translateY(0) scaleY(1);}
   18%{transform:translateY(6px) scaleY(.94);}
   40%{transform:translateY(-12px) scaleY(1.05);}
   62%{transform:translateY(3px) scaleY(.97);}
   80%{transform:translateY(-4px) scaleY(1.01);}
 }
-@keyframes tt-nod{
+@keyframes pp-nod{
   0%,100%{transform:rotate(0deg);}
   30%{transform:rotate(-5deg);}
   60%{transform:rotate(4deg);}
 }
-@keyframes tt-sway{
+@keyframes pp-sway{
   0%,100%{transform:rotate(-3deg);}
   50%{transform:rotate(3deg);}
 }
-@keyframes tt-tilt{
-  0%{transform:rotate(0deg);}
-  100%{transform:rotate(-14deg);}
-}
-@keyframes tt-pop{ from{opacity:0; transform:scale(.7) translateY(10px);} to{opacity:1; transform:none;} }
-.tt-roar .tt-body{animation:tt-bounce 1s cubic-bezier(.3,1.4,.5,1) .15s 2;}
-.tt-happy .tt-body{animation:tt-nod .9s ease-in-out .15s 2;}
-.tt-gentle .tt-body{animation:tt-sway 2.4s ease-in-out .1s 2;}
-.tt-offer .tt-arm{animation:tt-tilt .9s ease-out .3s forwards;}
-.totoro-scene canvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1;}
+@keyframes pp-pop{ from{opacity:0; transform:scale(.7) translateY(10px);} to{opacity:1; transform:none;} }
+.pp-roar .pp-body{animation:pp-bounce 1s cubic-bezier(.3,1.4,.5,1) .15s 2;}
+.pp-happy .pp-body{animation:pp-nod .9s ease-in-out .15s 2;}
+.pp-gentle .pp-body{animation:pp-sway 2.4s ease-in-out .1s 2;}
+.pp-offer .pp-body{animation:pp-sway 3.2s ease-in-out .1s 2;}
+.pup-scene canvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1;}
 .clip-wrap{position:relative; z-index:2;}
 .clip-wrap picture{display:block;}
 .clip-img{height:auto; display:block; border-radius:14px;}
-.tt-gif{max-height:200px; width:auto; max-width:86%; margin:0 auto;}
-.grow-gif{max-height:190px; width:auto; max-width:88%; margin:0 auto;}
-.acorn-earned{display:inline-flex; align-items:center; gap:6px; font-family:Outfit,sans-serif; font-weight:700;
+.pup-gif{max-height:200px; width:auto; max-width:86%; margin:0 auto;}
+.grew-pups{display:flex; align-items:flex-end; justify-content:center; gap:14px; margin:6px 0 2px;}
+.grew-pups .arrow{font-size:1.6rem; color:var(--muted); padding-bottom:26px;}
+.treat-earned{display:inline-flex; align-items:center; gap:6px; font-family:Outfit,sans-serif; font-weight:700;
   color:var(--accent-deep); background:rgba(223,162,47,.16); border-radius:999px; padding:4px 14px; margin-top:2px;
-  animation:tt-pop .5s ease-out .8s both;}
-:root[data-theme="dark"] .acorn-earned{color:var(--accent);}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .acorn-earned{color:var(--accent);}}
-/* --- acorn jar on the home screen --- */
+  animation:pp-pop .5s ease-out .8s both;}
+:root[data-theme="dark"] .treat-earned{color:var(--accent);}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .treat-earned{color:var(--accent);}}
+/* --- treat jar on the home screen --- */
 .jar-card{display:flex; align-items:center; gap:16px;}
 .jar-card .jar{flex:0 0 auto;}
 .jar-card .info{flex:1; min-width:0;}
 .jar-fill{transition:height .6s ease, y .6s ease;}
 @media (prefers-reduced-motion: reduce){
-  .tt-roar .tt-body,.tt-happy .tt-body,.tt-gentle .tt-body,.tt-offer .tt-arm{animation:none;}
+  .pp-roar .pp-body,.pp-happy .pp-body,.pp-gentle .pp-body,.pp-offer .pp-body{animation:none;}
 }
 /* --- 14-day levels chart --- */
 /* Sequential violet, stepped per theme against that theme's surface (not flipped):
@@ -814,11 +810,11 @@ function endSession(){
   session.score = { correct: correct, total: session.total };
   session.earned = correct;
   session.clip = pickClip();
-  var acornsBefore = state.acorns || 0;
-  state.acorns = acornsBefore + correct;
-  // did this round push the jar past a milestone, growing the tree?
-  var passed = JAR_MILESTONES.filter(function(m){ return acornsBefore < m && state.acorns >= m; });
-  session.grewTree = passed.length ? passed[passed.length - 1] : 0;
+  var treatsBefore = state.acorns || 0;   // stored under its original name so saved progress carries over
+  state.acorns = treatsBefore + correct;
+  // did this round push the jar past a milestone, growing the doodle?
+  var passed = JAR_MILESTONES.filter(function(m){ return treatsBefore < m && state.acorns >= m; });
+  session.grewPup = passed.length ? passed[passed.length - 1] : 0;
   saveLocal();
   render();
   setTimeout(function(){ if (!prepared) prepared = prepareRound(null); }, 1500);
@@ -831,33 +827,75 @@ function endSession(){
 
 
 
-function acornIcon(size){
-  var h = size, w = size * 0.82;
-  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 20 24" aria-hidden="true" style="vertical-align:-2px;">' +
-    '<ellipse cx="10" cy="15" rx="7.5" ry="8" fill="#b9803f"/>' +
-    '<ellipse cx="10" cy="7.5" rx="8.5" ry="4.5" fill="#6f4f2a"/>' +
-    '<path d="M10 3.2 V1" stroke="#6f4f2a" stroke-width="2" stroke-linecap="round"/></svg>';
+function treatIcon(size){
+  var w = size * 1.5, h = size;
+  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 30 20" aria-hidden="true" style="vertical-align:-2px;">' +
+    '<rect x="7" y="7.5" width="16" height="5" rx="2.5" fill="#E8D5AE"/>' +
+    '<circle cx="7" cy="7" r="4" fill="#E8D5AE"/><circle cx="7" cy="13" r="4" fill="#E8D5AE"/>' +
+    '<circle cx="23" cy="7" r="4" fill="#E8D5AE"/><circle cx="23" cy="13" r="4" fill="#E8D5AE"/>' +
+    '<rect x="7" y="7.5" width="16" height="5" rx="2.5" fill="none" stroke="#C8B183" stroke-width="1"/></svg>';
 }
 
-/* Acorns collected across every round, with a tree that grows at milestones. */
+/* Treats collected across every round, with a goldendoodle that grows from
+   puppy to adult at milestones. (The counter is stored as state.acorns from
+   the old theme so saved and synced progress carries over untouched.) */
 var JAR_MILESTONES = [25, 50, 100, 200, 400];
 
-/* The jar's tree, gaining a tier at every milestone reached. Also stands in for
-   the growth clip when that cannot be loaded. */
-function jarTreeSvg(reached){
+/* goldendoodle coat palette */
+var PUP_COAT = '#E0B26E', PUP_COAT_DK = '#C4934F', PUP_COAT_LT = '#F3DFB9',
+    PUP_DARK = '#4A3728', PUP_COLLAR = '#D94F6E';
+
+/* scalloped fluff: small circles around the top of a head circle */
+function fluffRing(cx, cy, r, fill, n, k){
+  var out = '';
+  for (var i = 0; i < n; i++){
+    var a = Math.PI * (0.05 + 0.9 * i / (n - 1)) + Math.PI;
+    out += '<circle cx="' + (cx + Math.cos(a) * r).toFixed(1) + '" cy="' + (cy + Math.sin(a) * r).toFixed(1) +
+      '" r="' + (r * k).toFixed(1) + '" fill="' + fill + '"/>';
+  }
+  return out;
+}
+
+/* The jar's doodle, growing from tiny puppy to full-size dog as milestones are
+   reached: her collar arrives at the second milestone, her name tag at the
+   fourth. */
+function jarPupSvg(reached){
   if (reached === undefined){
     var n = state.acorns || 0;
     reached = JAR_MILESTONES.filter(function(m){ return n >= m; }).length;
   }
-  var treeH = 16 + reached * 9;
-  return '<svg width="54" height="86" viewBox="0 0 54 86" aria-hidden="true" style="margin:0 auto;display:block;">' +
-    '<path d="M27 84 V' + (74 - treeH * 0.45) + '" stroke="#7c6a4f" stroke-width="5" stroke-linecap="round"/>' +
-    (reached
-      ? '<ellipse cx="27" cy="' + (66 - treeH * 0.7) + '" rx="' + (11 + reached * 3.2) + '" ry="' + (9 + reached * 2.6) + '" fill="#5c9e5a"/>' +
-        '<ellipse cx="' + (16 - reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#6db06a"/>' +
-        '<ellipse cx="' + (38 + reached) + '" cy="' + (72 - treeH * 0.5) + '" rx="' + (7 + reached * 1.6) + '" ry="' + (6 + reached * 1.3) + '" fill="#4f8f4e"/>'
-      : '<path d="M27 70 q-9 -6 -12 -14 q11 1 12 9" fill="#6db06a"/>') +
-    '</svg>';
+  var t = reached / JAR_MILESTONES.length;
+  var H = 30 + reached * 9.4;
+  var baseY = 84, cx = 27;
+  var bodyH = H * 0.52;
+  var bodyRx = bodyH * (0.62 - 0.10 * t);
+  var bodyCy = baseY - bodyH / 2;
+  var headR = H * (0.335 - 0.065 * t);   // puppies have big heads
+  var headCy = baseY - bodyH - headR * 0.68;
+
+  var s = '<svg width="54" height="86" viewBox="0 0 54 86" aria-hidden="true" style="margin:0 auto;display:block;">';
+  s += '<circle cx="' + (cx + bodyRx * 0.98).toFixed(1) + '" cy="' + (bodyCy - bodyH * 0.18).toFixed(1) + '" r="' + (bodyH * 0.24).toFixed(1) + '" fill="' + PUP_COAT_DK + '"/>';
+  s += '<ellipse cx="' + cx + '" cy="' + bodyCy.toFixed(1) + '" rx="' + bodyRx.toFixed(1) + '" ry="' + (bodyH / 2).toFixed(1) + '" fill="' + PUP_COAT + '"/>';
+  s += '<ellipse cx="' + cx + '" cy="' + (bodyCy + bodyH * 0.08).toFixed(1) + '" rx="' + (bodyRx * 0.52).toFixed(1) + '" ry="' + (bodyH * 0.34).toFixed(1) + '" fill="' + PUP_COAT_LT + '"/>';
+  s += '<ellipse cx="' + (cx - bodyRx * 0.45).toFixed(1) + '" cy="' + (baseY - 2.6) + '" rx="' + Math.max(3.4, bodyH * 0.17).toFixed(1) + '" ry="3" fill="' + PUP_COAT_DK + '"/>';
+  s += '<ellipse cx="' + (cx + bodyRx * 0.45).toFixed(1) + '" cy="' + (baseY - 2.6) + '" rx="' + Math.max(3.4, bodyH * 0.17).toFixed(1) + '" ry="3" fill="' + PUP_COAT_DK + '"/>';
+  if (reached >= 2){
+    var colY = headCy + headR * 0.92;
+    s += '<rect x="' + (cx - headR * 0.62).toFixed(1) + '" y="' + colY.toFixed(1) + '" width="' + (headR * 1.24).toFixed(1) + '" height="' + Math.max(2.4, headR * 0.17).toFixed(1) + '" rx="1.6" fill="' + PUP_COLLAR + '"/>';
+    if (reached >= 4) s += '<circle cx="' + cx + '" cy="' + (colY + headR * 0.28).toFixed(1) + '" r="' + (headR * 0.14).toFixed(1) + '" fill="#EFC24A"/>';
+  }
+  s += '<ellipse cx="' + (cx - headR * 0.95).toFixed(1) + '" cy="' + (headCy + headR * 0.30).toFixed(1) + '" rx="' + (headR * 0.34).toFixed(1) + '" ry="' + (headR * 0.78).toFixed(1) + '" fill="' + PUP_COAT_DK + '" transform="rotate(8 ' + (cx - headR * 0.95).toFixed(1) + ' ' + (headCy + headR * 0.30).toFixed(1) + ')"/>';
+  s += '<ellipse cx="' + (cx + headR * 0.95).toFixed(1) + '" cy="' + (headCy + headR * 0.30).toFixed(1) + '" rx="' + (headR * 0.34).toFixed(1) + '" ry="' + (headR * 0.78).toFixed(1) + '" fill="' + PUP_COAT_DK + '" transform="rotate(-8 ' + (cx + headR * 0.95).toFixed(1) + ' ' + (headCy + headR * 0.30).toFixed(1) + ')"/>';
+  s += fluffRing(cx, headCy, headR * 0.92, PUP_COAT, 6, 0.34);
+  s += '<circle cx="' + cx + '" cy="' + headCy.toFixed(1) + '" r="' + headR.toFixed(1) + '" fill="' + PUP_COAT + '"/>';
+  s += '<ellipse cx="' + cx + '" cy="' + (headCy + headR * 0.42).toFixed(1) + '" rx="' + (headR * 0.52).toFixed(1) + '" ry="' + (headR * 0.40).toFixed(1) + '" fill="' + PUP_COAT_LT + '"/>';
+  s += '<circle cx="' + (cx - headR * 0.40).toFixed(1) + '" cy="' + (headCy - headR * 0.08).toFixed(1) + '" r="' + Math.max(1.2, headR * 0.10).toFixed(1) + '" fill="' + PUP_DARK + '"/>';
+  s += '<circle cx="' + (cx + headR * 0.40).toFixed(1) + '" cy="' + (headCy - headR * 0.08).toFixed(1) + '" r="' + Math.max(1.2, headR * 0.10).toFixed(1) + '" fill="' + PUP_DARK + '"/>';
+  s += '<ellipse cx="' + cx + '" cy="' + (headCy + headR * 0.26).toFixed(1) + '" rx="' + Math.max(1.6, headR * 0.15).toFixed(1) + '" ry="' + Math.max(1.2, headR * 0.11).toFixed(1) + '" fill="' + PUP_DARK + '"/>';
+  s += '<path d="M' + (cx - headR * 0.22).toFixed(1) + ' ' + (headCy + headR * 0.50).toFixed(1) +
+       ' Q' + cx + ' ' + (headCy + headR * 0.66).toFixed(1) + ' ' + (cx + headR * 0.22).toFixed(1) + ' ' + (headCy + headR * 0.50).toFixed(1) +
+       '" stroke="' + PUP_DARK + '" stroke-width="' + Math.max(1.1, headR * 0.09).toFixed(1) + '" fill="none" stroke-linecap="round"/>';
+  return s + '</svg>';
 }
 
 function jarCard(){
@@ -871,46 +909,56 @@ function jarCard(){
   var pct = next ? Math.min(1, (n - prev) / (next - prev)) : 1;
   var fillH = Math.round(52 * pct);
 
-  var tree = jarTreeSvg(reached);
+  var pup = jarPupSvg(reached);
+
+  // little bones scattered inside the jar's fill
+  var bones = '';
+  for (var b = 0; b < 5; b++){
+    var bx = 16 + (b % 3) * 13 + (b > 2 ? 6 : 0), by = 78 - fillH + 8 + Math.floor(b / 3) * 12, rot = (b * 47) % 60 - 30;
+    if (by > 74) continue;
+    bones += '<g transform="translate(' + bx + ' ' + by + ') rotate(' + rot + ')" opacity=".85">' +
+      '<rect x="-5" y="-1.6" width="10" height="3.2" rx="1.6" fill="#C8A15E"/>' +
+      '<circle cx="-5" cy="-1.7" r="2.2" fill="#C8A15E"/><circle cx="-5" cy="1.7" r="2.2" fill="#C8A15E"/>' +
+      '<circle cx="5" cy="-1.7" r="2.2" fill="#C8A15E"/><circle cx="5" cy="1.7" r="2.2" fill="#C8A15E"/></g>';
+  }
 
   var jar = '<svg width="66" height="86" viewBox="0 0 66 86" aria-hidden="true">' +
     '<rect x="20" y="4" width="26" height="7" rx="3" fill="#b9a06f"/>' +
     '<path d="M14 14 h38 a6 6 0 0 1 6 6 v52 a8 8 0 0 1 -8 8 h-34 a8 8 0 0 1 -8 -8 v-52 a6 6 0 0 1 6 -6 z" fill="rgba(255,255,255,.10)" stroke="var(--line)" stroke-width="3"/>' +
     '<clipPath id="jarclip"><path d="M14 14 h38 a6 6 0 0 1 6 6 v52 a8 8 0 0 1 -8 8 h-34 a8 8 0 0 1 -8 -8 v-52 a6 6 0 0 1 6 -6 z"/></clipPath>' +
     '<g clip-path="url(#jarclip)">' +
-      '<rect class="jar-fill" x="8" y="' + (78 - fillH) + '" width="50" height="' + fillH + '" fill="#d9a44e" opacity=".85"/>' +
+      '<rect class="jar-fill" x="8" y="' + (78 - fillH) + '" width="50" height="' + fillH + '" fill="#EFDDB2" opacity=".9"/>' + bones +
     '</g></svg>';
 
   return '<div class="card jar-card">' +
     '<div class="jar">' + jar + '</div>' +
-    '<div class="info"><h3 style="margin:0 0 2px;">Acorn jar</h3>' +
+    '<div class="info"><h3 style="margin:0 0 2px;">Treat jar</h3>' +
       '<div style="font-family:Outfit,sans-serif;font-weight:700;font-size:1.35rem;">' + n + ' <span class="muted" style="font-size:.95rem;font-weight:400;">collected</span></div>' +
       '<p class="explain" style="margin:4px 0 0;">' +
-        (next ? (next - n) + ' more until the tree grows again.' : 'Your tree is fully grown. Keep going!') +
+        (next ? (next - n) + ' more treats until your doodle grows.' : 'Your doodle is all grown up. Keep going!') +
       '</p></div>' +
-    '<div class="jar">' + tree + '</div>' +
+    '<div class="jar">' + pup + '</div>' +
     '</div>';
 }
 
-/* ---------- Totoro end-of-round scene ---------- */
+/* ---------- goldendoodle end-of-round scene ---------- */
 /* Celebration clips, embedded from GIPHY's CDN. One is picked at random when a
    round ends; the previous pick is skipped so the same clip never repeats twice
    in a row. If a clip cannot be loaded, the drawn scene takes its place. */
-var TT_CLIPS = [
-  { id:'x5HlLDaLMZNVS',      alt:'Totoro under the rain' },
-  { id:'ZYZEFjLzOV3fq',      alt:'A happy Ghibli moment' },
-  { id:'Sr7cfpFkx4zWU',      alt:'Totoro waiting' },
-  { id:'J4FsxFgZgN2HS',      alt:'A gentle Ghibli scene' },
-  { id:'PgPVijEEPl6gw8WRRl', alt:'Totoro and friends' },
-  { id:'unzR48isp6cCY',      alt:'A Ghibli moment' }
+var PUP_CLIPS = [
+  { id:'h7u14Y8Y9mMp3Fzqif', alt:'A goldendoodle puppy smiling' },
+  { id:'31MXTUNTICxiEt2BsG', alt:'A goldendoodle puppy on the couch' },
+  { id:'JgReHQJPGaL3KKREbV', alt:'A doodle jumping for joy' },
+  { id:'cPzc5CjRHy4PZDjFgE', alt:'A doodle dressed as a lion' },
+  { id:'1p9KNyGjKpICkLFcyZ', alt:'A sleepy goldendoodle puppy' },
+  { id:'tKu0JvWPrOLJpBch4L', alt:'A doodle saying good night' }
 ];
-var GROW_CLIP = { id:'3o751Syb8nQNtUPD7G', alt:'A sprout grows into a tree' };
 var LAST_CLIP_KEY = 'word-summit-lastclip';
 
 function clipUrl(id, ext){ return 'https://media.giphy.com/media/' + id + '/giphy.' + ext; }
 
 function pickClip(){
-  var pool = TT_CLIPS, lastId = null;
+  var pool = PUP_CLIPS, lastId = null;
   try { lastId = localStorage.getItem(LAST_CLIP_KEY); } catch (e) {}
   var fresh = pool.filter(function(c){ return c.id !== lastId; });
   if (fresh.length) pool = fresh;                  // never the same clip twice running
@@ -959,75 +1007,69 @@ function moodFor(pct){
   return 'offer';
 }
 
-function totoroSvg(mood){
-  // mouth + eyes change with how the round went
-  var mouth, eyes, brows = '';
+function doodleSvg(mood){
+  // eyes + mouth change with how the round went
+  var eyes, mouth, extra = '';
   if (mood === 'roar'){
-    mouth = '<path d="M88 106 Q110 148 132 106 Q110 116 88 106 Z" fill="#463a33"/>' +
-            '<path d="M100 124 Q110 136 120 124 Q110 128 100 124 Z" fill="#d98f8f"/>';
-    eyes  = '<circle cx="89" cy="84" r="13" fill="#fff"/><circle cx="131" cy="84" r="13" fill="#fff"/>' +
-            '<circle cx="90" cy="85" r="6.5" fill="#2b2723"/><circle cx="130" cy="85" r="6.5" fill="#2b2723"/>' +
-            '<circle cx="92.5" cy="82" r="2.2" fill="#fff"/><circle cx="132.5" cy="82" r="2.2" fill="#fff"/>';
+    // perfect round: closed happy eyes, open-mouth grin, sparkles
+    eyes  = '<path d="M108 76 Q118 66 128 76" stroke="' + PUP_DARK + '" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+            '<path d="M140 76 Q150 66 160 76" stroke="' + PUP_DARK + '" stroke-width="5" fill="none" stroke-linecap="round"/>';
+    mouth = '<path d="M112 112 Q134 138 156 112 Q134 120 112 112 Z" fill="#463a33"/>' +
+            '<path d="M124 121 Q134 136 144 121 Q134 140 124 121 Z" fill="#E5808F"/>';
+    extra = '<g stroke="#EFA13A" stroke-width="3" stroke-linecap="round">' +
+            '<path d="M62 34 l6 0 M65 31 l0 6"/><path d="M204 42 l8 0 M208 38 l0 8"/><path d="M182 16 l6 0 M185 13 l0 6"/></g>';
   } else if (mood === 'happy'){
-    mouth = '<path d="M94 106 Q102 118 110 106 Q118 118 126 106" stroke="#463a33" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
-    eyes  = '<circle cx="89" cy="84" r="12" fill="#fff"/><circle cx="131" cy="84" r="12" fill="#fff"/>' +
-            '<circle cx="90" cy="86" r="6" fill="#2b2723"/><circle cx="130" cy="86" r="6" fill="#2b2723"/>' +
-            '<circle cx="92" cy="83" r="2" fill="#fff"/><circle cx="132" cy="83" r="2" fill="#fff"/>';
+    eyes  = '<circle cx="116" cy="76" r="7" fill="' + PUP_DARK + '"/><circle cx="152" cy="76" r="7" fill="' + PUP_DARK + '"/>' +
+            '<circle cx="118.5" cy="73.5" r="2.2" fill="#fff"/><circle cx="154.5" cy="73.5" r="2.2" fill="#fff"/>';
+    mouth = '<path d="M116 110 Q125 121 134 112 Q143 121 152 110" stroke="' + PUP_DARK + '" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+            '<path d="M128 116 Q134 128 140 116 Q134 122 128 116 Z" fill="#E5808F"/>';
   } else if (mood === 'gentle'){
-    mouth = '<path d="M99 106 Q110 116 121 106" stroke="#463a33" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
-    eyes  = '<circle cx="89" cy="84" r="11" fill="#fff"/><circle cx="131" cy="84" r="11" fill="#fff"/>' +
-            '<circle cx="91" cy="86" r="5.5" fill="#2b2723"/><circle cx="129" cy="86" r="5.5" fill="#2b2723"/>';
+    eyes  = '<circle cx="116" cy="76" r="6.5" fill="' + PUP_DARK + '"/><circle cx="152" cy="76" r="6.5" fill="' + PUP_DARK + '"/>';
+    mouth = '<path d="M120 112 Q134 122 148 112" stroke="' + PUP_DARK + '" stroke-width="5" fill="none" stroke-linecap="round"/>';
   } else {
-    // soft, sleepy-kind expression after a rough round
-    mouth = '<path d="M101 107 Q110 114 119 107" stroke="#463a33" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
-    eyes  = '<path d="M79 86 Q89 78 99 86" stroke="#2b2723" stroke-width="4.5" fill="none" stroke-linecap="round"/>' +
-            '<path d="M121 86 Q131 78 141 86" stroke="#2b2723" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
-    brows = '';
+    // soft, sleepy-kind face after a rough round — she brings you her ball
+    eyes  = '<path d="M106 78 Q116 70 126 78" stroke="' + PUP_DARK + '" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+            '<path d="M142 78 Q152 70 162 78" stroke="' + PUP_DARK + '" stroke-width="5" fill="none" stroke-linecap="round"/>';
+    mouth = '<path d="M124 112 Q134 119 144 112" stroke="' + PUP_DARK + '" stroke-width="5" fill="none" stroke-linecap="round"/>';
+    extra = '<g>' +
+            '<ellipse cx="184" cy="205" rx="13" ry="12" fill="#C9D948"/>' +
+            '<path d="M174 198 Q184 205 194 198 M174 212 Q184 205 194 212" stroke="#fff" stroke-width="2.5" fill="none"/>' +
+            '</g>';
   }
 
-  return '<svg class="totoro" viewBox="0 0 268 224" role="img" aria-label="A friendly forest spirit holding a leaf umbrella">' +
-    '<g class="tt-body">' +
-      // ears — rounded, wide-based
-      '<path d="M74 60 Q62 26 60 10 Q84 24 98 50 Z" fill="#767d87" stroke="#767d87" stroke-width="7" stroke-linejoin="round"/>' +
-      '<path d="M146 60 Q158 26 160 10 Q136 24 122 50 Z" fill="#767d87" stroke="#767d87" stroke-width="7" stroke-linejoin="round"/>' +
-      // body — narrower at the shoulders, wide and heavy at the base
-      '<path d="M110 36 C72 36 46 74 44 120 C42 172 72 204 110 204 C148 204 178 172 176 120 C174 74 148 36 110 36 Z" fill="#878e98"/>' +
-      // belly
-      '<path d="M110 66 C80 66 62 100 62 136 C62 174 84 196 110 196 C136 196 158 174 158 136 C158 100 140 66 110 66 Z" fill="#ece6da"/>' +
-      // belly chevrons
-      '<g stroke="#9aa0a9" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
-        '<path d="M84 146 l10 -11 l10 11"/><path d="M108 146 l10 -11 l10 11"/>' +
-        '<path d="M92 170 l10 -11 l10 11"/><path d="M116 170 l10 -11 l10 11"/>' +
-      '</g>' +
-      // arms
-      '<ellipse cx="48" cy="134" rx="13" ry="22" fill="#767d87" transform="rotate(12 48 134)"/>' +
-      // whiskers
-      '<g stroke="#7d838c" stroke-width="3" stroke-linecap="round">' +
-        '<path d="M62 78 L30 66"/><path d="M59 90 L25 86"/><path d="M62 102 L31 108"/>' +
-        '<path d="M158 78 L190 66"/><path d="M161 90 L195 86"/><path d="M158 102 L189 108"/>' +
-      '</g>' +
-      eyes + brows +
-      '<path d="M110 96 l8.5 8 h-17 z" fill="#3a332e"/>' +
-      mouth +
-      // feet
-      '<ellipse cx="86" cy="203" rx="19" ry="10" fill="#767d87"/>' +
-      '<ellipse cx="134" cy="203" rx="19" ry="10" fill="#767d87"/>' +
-    '</g>' +
-    // right paw + leaf umbrella, held up and out
-    '<g class="tt-arm">' +
-      '<ellipse cx="172" cy="130" rx="13" ry="22" fill="#767d87" transform="rotate(-14 172 130)"/>' +
-      '<path d="M178 122 L200 54" stroke="#8a7350" stroke-width="5.5" stroke-linecap="round"/>' +
-      '<path d="M200 58 C168 58 150 40 152 18 Q184 12 205 34 Q224 10 252 20 C250 46 226 62 200 58 Z" fill="#5c9e5a"/>' +
-      '<path d="M154 20 Q200 34 250 22" stroke="#3f7a41" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".65"/>' +
-      '<path d="M200 57 Q198 42 205 33" stroke="#3f7a41" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".65"/>' +
-    '</g>' +
+  return '<svg class="pup" viewBox="0 0 268 224" role="img" aria-label="A fluffy goldendoodle">' +
+    '<g class="pp-body">' +
+      // tail
+      '<circle cx="206" cy="168" r="17" fill="' + PUP_COAT_DK + '"/>' +
+      // body
+      '<path d="M134 96 C88 96 62 134 62 172 C62 204 92 216 134 216 C176 216 206 204 206 172 C206 134 180 96 134 96 Z" fill="' + PUP_COAT + '"/>' +
+      // chest
+      '<ellipse cx="134" cy="176" rx="36" ry="32" fill="' + PUP_COAT_LT + '"/>' +
+      // paws
+      '<ellipse cx="106" cy="212" rx="17" ry="8" fill="' + PUP_COAT_DK + '"/>' +
+      '<ellipse cx="162" cy="212" rx="17" ry="8" fill="' + PUP_COAT_DK + '"/>' +
+      // collar + tag
+      '<path d="M96 118 Q134 136 172 118 L172 128 Q134 146 96 128 Z" fill="' + PUP_COLLAR + '"/>' +
+      '<circle cx="134" cy="140" r="6" fill="#EFC24A"/>' +
+      // ears — long and droopy
+      '<ellipse cx="86" cy="82" rx="19" ry="38" fill="' + PUP_COAT_DK + '" transform="rotate(14 86 82)"/>' +
+      '<ellipse cx="182" cy="82" rx="19" ry="38" fill="' + PUP_COAT_DK + '" transform="rotate(-14 182 82)"/>' +
+      // fluffy head
+      fluffRing(134, 66, 46, PUP_COAT, 7, 0.36) +
+      '<circle cx="134" cy="66" r="50" fill="' + PUP_COAT + '"/>' +
+      // muzzle
+      '<ellipse cx="134" cy="94" rx="27" ry="21" fill="' + PUP_COAT_LT + '"/>' +
+      // nose
+      '<ellipse cx="134" cy="88" rx="8.5" ry="6.5" fill="' + PUP_DARK + '"/>' +
+      eyes + mouth +
+    '</g>' + extra +
     '</svg>';
 }
 
-/* Acorns rain past the scene, one per correct answer, so the shower is a
+/* Bone treats rain past the scene, one per correct answer, so the shower is a
    measure of the round. They fall behind the clip so they frame it rather than
    cover it. */
-function acornShower(host, count){
+function treatShower(host, count){
   if (!host) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   var cv = document.createElement('canvas');
@@ -1049,14 +1091,14 @@ function acornShower(host, count){
       sway: (Math.random() - 0.5) * 0.5
     });
   }
-  function acorn(d){
+  function treat(d){
     ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a);
-    ctx.fillStyle = '#b9803f';
-    ctx.beginPath(); ctx.ellipse(0, d.r * 0.35, d.r * 0.72, d.r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#6f4f2a';
-    ctx.beginPath(); ctx.ellipse(0, -d.r * 0.45, d.r * 0.82, d.r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#6f4f2a'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(0, -d.r * 0.85); ctx.lineTo(0, -d.r * 1.25); ctx.stroke();
+    ctx.fillStyle = '#D9BE8C';
+    ctx.beginPath(); ctx.rect(-d.r * 0.7, -d.r * 0.28, d.r * 1.4, d.r * 0.56); ctx.fill();
+    [-d.r * 0.7, d.r * 0.7].forEach(function(ex){
+      ctx.beginPath(); ctx.ellipse(ex, -d.r * 0.3, d.r * 0.4, d.r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(ex, d.r * 0.3, d.r * 0.4, d.r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    });
     ctx.restore();
   }
   var frames = 0;
@@ -1065,7 +1107,7 @@ function acornShower(host, count){
     var alive = 0;
     drops.forEach(function(d){
       d.y += d.vy; d.x += Math.sin(d.y / 34) * d.sway; d.a += d.spin;
-      if (d.y < H + 30){ alive++; acorn(d); }
+      if (d.y < H + 30){ alive++; treat(d); }
     });
     if (alive && ++frames < 360) requestAnimationFrame(tick);
     else cv.remove();
@@ -1390,11 +1432,11 @@ function endView(){
   var stars = pct >= 0.9 ? 3 : pct >= 0.7 ? 2 : pct >= 0.5 ? 1 : 0;
   var mood = moodFor(pct);
   var starHtml =
-    '<div class="totoro-scene tt-' + mood + '" id="totoro-scene">' +
-      clipMarkup(session.clip || TT_CLIPS[0], 'tt-gif', totoroSvg(mood)) + '</div>' +
+    '<div class="pup-scene pp-' + mood + '" id="pup-scene">' +
+      clipMarkup(session.clip || PUP_CLIPS[0], 'pup-gif', doodleSvg(mood)) + '</div>' +
     '<div class="stars">' +
     [0,1,2].map(function(i){ return '<span class="' + (i < stars ? '' : 'off') + '">&#9733;</span>'; }).join('') + '</div>' +
-    (session.earned ? '<div class="acorn-earned">' + acornIcon(16) + '+' + session.earned + ' acorns</div>' : '');
+    (session.earned ? '<div class="treat-earned">' + treatIcon(16) + '+' + session.earned + ' treats</div>' : '');
   var missedIds = Object.keys(session.missed);
   var missedHtml = '';
   if (missedIds.length){
@@ -1405,12 +1447,15 @@ function endView(){
       }).join('') + '</ul></div>';
   }
   var praise = pct >= 0.9 ? 'Peak performance!' : pct >= 0.7 ? 'Great climbing!' : pct >= 0.5 ? 'Good practice!' : 'Tough stretch — those words will come back soon!';
-  var grewHtml = session.grewTree
-    ? '<div class="card center"><div class="qask">' + session.grewTree + ' acorns</div>' +
-      '<h3 style="margin:4px 0 8px;">Your tree grew!</h3>' +
-      clipMarkup(GROW_CLIP, 'grow-gif', jarTreeSvg()) +
-      '</div>'
-    : '';
+  var grewHtml = '';
+  if (session.grewPup){
+    var grewReached = JAR_MILESTONES.indexOf(session.grewPup) + 1;
+    grewHtml = '<div class="card center"><div class="qask">' + session.grewPup + ' treats</div>' +
+      '<h3 style="margin:4px 0 8px;">Your doodle grew!</h3>' +
+      '<div class="grew-pups">' + jarPupSvg(grewReached - 1) +
+        '<span class="arrow">&rarr;</span>' + jarPupSvg(grewReached) + '</div>' +
+      '</div>';
+  }
   return '<div class="card center home-hero">' + starHtml +
     '<h1 style="margin:8px 0 4px;">' + praise + '</h1>' +
     '<div class="big-num">' + sc.correct + '<span class="muted" style="font-size:1.4rem;"> / ' + sc.total + '</span></div>' +
@@ -1727,8 +1772,8 @@ function render(){
   wireLevelChart();
   if (session && session.done && session.earned && !session.showered){
     session.showered = true;
-    var host = document.getElementById('totoro-scene');
-    if (host) setTimeout(function(){ acornShower(host, session.earned); }, 180);
+    var host = document.getElementById('pup-scene');
+    if (host) setTimeout(function(){ treatShower(host, session.earned); }, 180);
   }
   var inp = document.getElementById('typed');
   if (inp && !session.answered){
