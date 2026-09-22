@@ -111,6 +111,50 @@ async function priceOn(ticker: string, whenMs: number): Promise<number | null> {
 /* ---------- value over time ---------- */
 type Grant = { id: string; child: string; ticker: string; shares: number; purchased_at: string; price_at_purchase: number | null; note: string | null };
 
+function priceGrid(grants: Grant[], byTicker: Record<string, Series>) {
+  const tickers = [...new Set(grants.map((g) => g.ticker))].filter((t) => byTicker[t]);
+  const stamps = [...new Set(tickers.flatMap((t) => byTicker[t].t))].sort((a, b) => a - b);
+  const priceAt: Record<string, (number | null)[]> = {};
+  for (const tk of tickers) {
+    const s = byTicker[tk];
+    const out: (number | null)[] = [];
+    let i = 0, last: number | null = null;
+    for (const stamp of stamps) {
+      while (i < s.t.length && s.t[i] <= stamp) {
+        if (typeof s.c[i] === "number") last = s.c[i] as number;
+        i++;
+      }
+      out.push(last);
+    }
+    priceAt[tk] = out;
+  }
+  return { tickers, stamps, priceAt };
+}
+
+// One line per child on a shared timeline, plus the family total.
+function buildByChild(grants: Grant[], byTicker: Record<string, Series>) {
+  const { tickers, stamps, priceAt } = priceGrid(grants, byTicker);
+  const kids = [...new Set(grants.map((g) => g.child))];
+  const points = stamps.map((stamp, idx) => {
+    const per: Record<string, number> = {};
+    let total = 0;
+    for (const kid of kids) {
+      let v = 0, any = false;
+      for (const tk of tickers) {
+        const price = priceAt[tk][idx];
+        if (price == null) continue;
+        const sh = grants
+          .filter((g) => g.child === kid && g.ticker === tk && Date.parse(g.purchased_at) <= stamp)
+          .reduce((n, g) => n + Number(g.shares), 0);
+        if (sh > 0) { v += sh * price; any = true; }
+      }
+      if (any) { per[kid] = v; total += v; }
+    }
+    return { t: stamp, total, per };
+  }).filter((p) => Object.keys(p.per).length > 0);
+  return { kids, points };
+}
+
 function buildSeries(grants: Grant[], byTicker: Record<string, Series>) {
   const tickers = [...new Set(grants.map((g) => g.ticker))].filter((t) => byTicker[t]);
   // One timeline for every ticker, so the lines and the total line up.
@@ -217,6 +261,47 @@ Deno.serve(async (req) => {
   if (!(await authorised(String(body?.password || "")))) {
     await new Promise((r) => setTimeout(r, 600));
     return json({ error: "unauthorized" }, 401);
+  }
+
+  if (action === "series_all") {
+    const key = RANGES[String(body?.range || "month")] ? String(body.range) : "month";
+    const gr = await fetch(`${SB_URL()}/rest/v1/stock_grants?select=*&order=purchased_at.asc`, { headers: sbHeaders() });
+    if (!gr.ok) return json({ error: "read_failed" }, 502);
+    const grants: Grant[] = await gr.json();
+    if (!grants.length) return json({ range: key, kids: [], points: [], summary: null });
+
+    // Each ticker is fetched once for the whole family, not once per child.
+    const tickers = [...new Set(grants.map((g) => g.ticker))];
+    const fetched = await Promise.all(tickers.map((t) => seriesFor(t, key)));
+    const byTicker: Record<string, Series> = {};
+    tickers.forEach((t, i) => { if (fetched[i]) byTicker[t] = fetched[i]!; });
+
+    const { kids, points } = buildByChild(grants, byTicker);
+    const last = points[points.length - 1];
+    const first = points[0];
+    const invested = grants.reduce(
+      (n, g) => n + (g.price_at_purchase ? Number(g.shares) * Number(g.price_at_purchase) : 0), 0);
+
+    const perKid: Record<string, { value: number; invested: number }> = {};
+    for (const kid of kids) {
+      perKid[kid] = {
+        value: last && typeof last.per[kid] === "number" ? last.per[kid] : 0,
+        invested: grants.filter((g) => g.child === kid)
+          .reduce((n, g) => n + (g.price_at_purchase ? Number(g.shares) * Number(g.price_at_purchase) : 0), 0),
+      };
+    }
+    return json({
+      range: key, kids, points, names: CHILDREN,
+      summary: {
+        value: last ? last.total : 0, invested,
+        gain: (last ? last.total : 0) - invested,
+        gainPct: invested > 0 ? (((last ? last.total : 0) - invested) / invested) * 100 : null,
+        perKid,
+        addedInWindow: grants.filter((g) => Date.parse(g.purchased_at) >= (first ? first.t : 0))
+          .map((g) => ({ child: g.child, ticker: g.ticker, at: g.purchased_at })),
+        asOf: last ? last.t : null,
+      },
+    });
   }
 
   if (action === "list") {

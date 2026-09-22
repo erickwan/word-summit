@@ -277,5 +277,6 @@ var STOCKS = (function () {
     });
   }
 
-  return { load: load, render: render, wire: wire, clearCache: clearCache, RANGES: RANGES };
+  return { load: load, render: render, wire: wire, clearCache: clearCache,
+           RANGES: RANGES, chart: chart, money: money, esc: esc };
 })();
