@@ -276,7 +276,14 @@ var SESSION_SIZE = 20;
 var MIN_QUESTIONS = 15;                     // pad short rounds with encore passes
 var DAILY_NEW = 3;                          // brand-new words introduced per day
 
-var PROFILE = { name:'Evia', age:'a middle schooler', goal:'SSAT vocabulary', band:'middle-school' };
+var PROFILE = { name:'Evia', age:'a middle schooler', goal:'SSAT vocabulary', band:'middle-school',
+  // Her favourites, added to the shared settings questions are written around.
+  topics: [
+    'the TV show Young Sheldon',
+    'the TV show Hannah Montana',
+    'the sitcom Fresh Off the Boat',
+    "chef Nick DiGiovanni's cooking videos"
+  ] };
 var GEN_CFG = REMOTE ? { url: REMOTE.url, key: REMOTE.key } : null;
 var QCACHE = QGEN.Cache('word-summit-qcache-v1', 14 * 86400000);
 // Two months of what each word has been asked, so a review can be told to do

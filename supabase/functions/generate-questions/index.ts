@@ -214,6 +214,13 @@ the same. For any word with such a list you MUST:
 - avoid echoing distinctive nouns from the earlier questions.
 Each word also arrives with a suggested domain. Use it as the setting for any
 sentence or scenario you write, unless the word makes that impossible.
+Some domains name a TV show or a real person this student enjoys. For a show, use
+its characters, setting and situations in sentences of your own - never quote
+lines from it. For a real person, set the scene around what they are publicly
+known for (for a chef, a cooking video or a kitchen challenge), and keep anything
+said about them positive and plausible: never invent quotes, personal details or
+bad behaviour for a real person. When a scenario needs someone getting it wrong,
+give that part to an unnamed character instead.
 
 Every question must be original. Do not copy sentences from the input. Write at a reading level the student can handle, keeping the difficulty in the vocabulary being tested rather than in the surrounding words.
 
@@ -257,7 +264,9 @@ function recentLines(recent: any[]): string | null {
   ].join("\n");
 }
 
-function userPrompt(words: any[]) {
+function userPrompt(words: any[], topics: string[] = []) {
+  // The shared domains plus this child's own favourites, each equally likely.
+  const pool = DOMAINS.concat(topics);
   const lines = words.map((w) => {
     const h = w.history || {};
     const seen = h.seen || 0;
@@ -277,7 +286,7 @@ function userPrompt(words: any[]) {
       w.syn ? `  synonym the student has already been shown: ${w.syn}` : null,
       w.ant ? `  antonym the student has already been shown: ${w.ant}` : null,
       `  student history: ${status}`,
-      `  suggested domain for the setting: ${DOMAINS[Math.floor(Math.random() * DOMAINS.length)]}`,
+      `  suggested domain for the setting: ${pool[Math.floor(Math.random() * pool.length)]}`,
       recentLines(w.recent),
     ].filter(Boolean).join("\n");
   });
@@ -315,6 +324,11 @@ Deno.serve(async (req: Request) => {
       goal: String(body?.profile?.goal || "vocabulary"),
       band: String(body?.profile?.band || "middle-school"),
     };
+    // Extra setting domains chosen for this child, sent by their app.
+    const topics: string[] = (Array.isArray(body?.profile?.topics) ? body.profile.topics : [])
+      .map((t: unknown) => String(t).trim().slice(0, 80))
+      .filter(Boolean)
+      .slice(0, 12);
 
     // Hard daily cap so an exposed endpoint can't run up the API bill.
     const sbUrl = Deno.env.get("SUPABASE_URL");
@@ -347,7 +361,7 @@ Deno.serve(async (req: Request) => {
       },
       system: [{ type: "text", text: systemPrompt(profile),
                  cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: userPrompt(words) }],
+      messages: [{ role: "user", content: userPrompt(words, topics) }],
     });
 
     if (response.stop_reason === "refusal") {
