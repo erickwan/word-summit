@@ -224,6 +224,46 @@ ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 @media (prefers-reduced-motion: reduce){
   .pp-roar .pp-body,.pp-happy .pp-body,.pp-gentle .pp-body,.pp-offer .pp-body{animation:none;}
 }
+/* --- stock rewards --- */
+/* Categorical slots in fixed order, so a ticker keeps its colour as the
+   selection changes. Validated against this app's own card surfaces. */
+:root{
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300;
+  --stk-total:var(--brand); --stk-up:#1D7A3D; --stk-down:#B3261E;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
+    --stk-up:#5FD08A; --stk-down:#FF8A7A;
+  }
+}
+:root[data-theme="dark"]{
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
+  --stk-up:#5FD08A; --stk-down:#FF8A7A;
+}
+.stk-hero{display:flex; flex-wrap:wrap; gap:18px; margin:0 0 12px;}
+.stk-hero div{display:flex; flex-direction:column;}
+.stk-hero b{font-size:1.7rem; line-height:1.15;}
+.stk-hero small{font-size:1rem; font-weight:600;}
+.stk-hero span{font-size:.8rem; color:var(--muted);}
+.stk-hero .up b{color:var(--stk-up);} .stk-hero .down b{color:var(--stk-down);}
+.stk-tabs{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 8px;}
+.stk-tabs button{border:1px solid var(--line); background:transparent; color:var(--muted);
+  border-radius:999px; padding:6px 13px; font:inherit; font-size:.85rem; font-weight:600; cursor:pointer;}
+.stk-tabs button.on{background:var(--brand); border-color:var(--brand); color:#fff;}
+.stk-tabs.alt{margin-bottom:10px;}
+.stk-legend{display:flex; flex-wrap:wrap; gap:14px; margin:2px 0 6px; font-size:.86rem;}
+.stk-key{display:inline-flex; align-items:center; gap:6px; color:var(--ink);}
+.stk-key i{width:12px; height:12px; border-radius:3px; display:inline-block; flex:0 0 auto;}
+.stk-chart{position:relative;}
+.stk-chart svg{width:100%; height:auto; display:block; overflow:visible;}
+.stk-hit{cursor:crosshair;}
+.stk-tip{position:absolute; pointer-events:none; background:var(--surface); color:var(--ink);
+  border:2px solid var(--line); border-radius:10px; padding:7px 10px; font-size:.82rem;
+  box-shadow:0 4px 14px var(--shadow); white-space:nowrap; transform:translate(-50%,-100%); z-index:3;}
+.stk-tip .d{font-weight:700; margin-bottom:2px;}
+.stk-tip .r{display:flex; gap:12px; justify-content:space-between;}
+.stk-tip .r span{color:var(--muted);}
 /* --- 14-day levels chart --- */
 /* Sequential violet, stepped per theme against that theme's surface (not flipped):
    on light, further progress = darker; on dark, further progress = brighter. */
@@ -260,6 +300,7 @@ ul.tricky b{font-family:Outfit,sans-serif; font-weight:600;}
 
 <script src="words.js"></script>
 <script src="generate.js"></script>
+<script src="stocks.js"></script>
 <script>
 (function(){
 "use strict";
@@ -289,6 +330,21 @@ var QCACHE = QGEN.Cache('word-summit-qcache-v1', 14 * 86400000);
 // Two months of what each word has been asked, so a review can be told to do
 // something different. Device-local, like the question cache.
 var QASKS = QGEN.AskLog('word-summit-asklog-v1', 4, 60 * 86400000);
+/* Stock rewards. The series is fetched per range and cached briefly, so
+   flicking between ranges does not re-hit the price feed. */
+var STOCK_CHILD = 'evia';
+var stockUI = { range:'month', mode:'total' };
+var stockData = null;
+function loadStocks(){
+  if (!REMOTE) return;
+  stockData = null;
+  STOCKS.load(REMOTE, STOCK_CHILD, stockUI.range)
+    .then(function(p){ stockData = p; if (view === 'stocks') render(); })
+    .catch(function(){ stockData = { error:true }; if (view === 'stocks') render(); });
+}
+function stocksView(){
+  return STOCKS.render(stockData, stockUI, { emptyText:'No shares yet. Keep climbing and they will appear here!' });
+}
 
 var LEVELS = { 1:'Essential', 2:'Intermediate', 3:'Advanced' };
 var DECKS = [];
@@ -1275,7 +1331,7 @@ function levelChip(level){
 function header(){
   return '<header class="app"><div class="logo"><span class="mark">E</span> Word Summit</div></header>' +
     '<nav class="tabs" role="tablist">' +
-    ['home:Practice', 'decks:Decks', 'parent:Progress'].map(function(t){
+    ['home:Practice', 'decks:Decks', 'stocks:My shares', 'parent:Progress'].map(function(t){
       var k = t.split(':');
       return '<button role="tab" data-view="' + k[0] + '" class="' + (view === k[0] ? 'on' : '') + '">' + k[1] + '</button>';
     }).join('') + '</nav>';
@@ -1778,11 +1834,13 @@ function render(){
     else if (session && session.done) html += endView();
     else html += homeView();
   } else if (view === 'decks') html += decksView();
+  else if (view === 'stocks') html += stocksView();
   else html += parentView();
   root.innerHTML = html;
   if (session && !session.done && session.q && session.q.type === 'scramble' && !session.answered) renderScramble();
   watchClips();
   wireLevelChart();
+  STOCKS.wire();
   if (session && session.done && session.earned && !session.showered){
     session.showered = true;
     var host = document.getElementById('pup-scene');
@@ -1862,7 +1920,10 @@ root.addEventListener('click', function(e){
   if (t.dataset.view){
     if (session && !session.done && !confirm('Leave this practice round?')) return;
     if (session && !session.done) session = null;
-    view = t.dataset.view; render(); return;
+    view = t.dataset.view;
+    // Prices are only fetched once the child actually opens the tab.
+    if (view === 'stocks' && !stockData) loadStocks();
+    render(); return;
   }
   if (t.dataset.deck){ view = 'home'; startSession(t.dataset.deck); return; }
   if (t.dataset.bf){
@@ -1887,6 +1948,10 @@ root.addEventListener('click', function(e){
   if (act === 'finish'){ session = null; render(); return; }
   if (act === 'submit-typed'){ submitTyped(); return; }
   if (act === 'scr-undo'){ if (!session.answered && scr.picked.length){ scr.picked.pop(); renderScramble(); } return; }
+  if (act === 'stk-range'){
+    stockUI.range = t.dataset.range; loadStocks(); render(); return;
+  }
+  if (act === 'stk-mode'){ stockUI.mode = t.dataset.mode; render(); return; }
   if (act === 'lv-table'){ showLevelTable = !showLevelTable; render(); return; }
   if (act === 'save-now'){
     t.disabled = true; t.textContent = 'Syncing…';
