@@ -94,8 +94,8 @@ var STOCKS = (function () {
         open = true;
       });
       if (!d) return;
-      lines += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="2" ' +
-        'stroke-linejoin="round" stroke-linecap="round"/>';
+      lines += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="' +
+        (s.width || 2) + '" stroke-linejoin="round" stroke-linecap="round"/>';
       if (opts.labelRoom) {
         for (var i = s.values.length - 1; i >= 0; i--) {
           if (typeof s.values[i] === "number") { labels.push({ y: y(s.values[i]), text: s.label, color: s.color }); break; }
@@ -170,7 +170,11 @@ var STOCKS = (function () {
     // when the range changes or a new one is added.
     var tickers = (payload.tickers || []).map(function (t) { return t.ticker; });
     var shown = tickers.slice(0, MAX_SERIES);
-    var stamps = payload.points.map(function (p) { return p.t; });
+    // Comparing against siblings spans everyone's history; the other two views
+    // are about this child's own holdings, so they span only theirs.
+    var famPts = payload.familyPoints || [];
+    var useFam = ui.mode === "family" && famPts.length;
+    var stamps = (useFam ? famPts : payload.points).map(function (p) { return p.t; });
 
     var series;
     if (ui.mode === "each") {
@@ -191,6 +195,23 @@ var STOCKS = (function () {
           })
         });
       }
+    } else if (useFam) {
+      // Fixed child order so everyone keeps their colour in every app.
+      var ORDER = ["main", "evia", "jax"];
+      var TINT = { main: "var(--wesley)", evia: "var(--evia)", jax: "var(--jax)" };
+      series = ORDER.filter(function (c2) {
+        return c2 === payload.child || (payload.others || []).indexOf(c2) >= 0;
+      }).map(function (c2) {
+        var mine = c2 === payload.child;
+        return {
+          key: c2,
+          label: (payload.names && payload.names[c2]) || c2,
+          color: TINT[c2], width: mine ? 3.2 : 2,
+          values: famPts.map(function (p) { return typeof p.per[c2] === "number" ? p.per[c2] : null; })
+        };
+      }).filter(function (sr) {
+        return sr.values.some(function (v) { return typeof v === "number"; });
+      });
     } else {
       series = [{ key: "total", label: "Total", color: "var(--stk-total)",
         values: payload.points.map(function (p) { return p.total; }) }];
@@ -199,6 +220,9 @@ var STOCKS = (function () {
     var modes = '<div class="stk-tabs alt" role="group" aria-label="What to show">' +
       '<button data-act="stk-mode" data-mode="total" class="' + (ui.mode === "total" ? "on" : "") + '">All together</button>' +
       '<button data-act="stk-mode" data-mode="each" class="' + (ui.mode === "each" ? "on" : "") + '">Each stock</button>' +
+      ((payload.others || []).length
+        ? '<button data-act="stk-mode" data-mode="family" class="' + (ui.mode === "family" ? "on" : "") + '">Everyone</button>'
+        : "") +
       "</div>";
 
     // A legend is required for two or more lines, and it doubles as the relief
@@ -206,7 +230,13 @@ var STOCKS = (function () {
     var legend = "";
     if (series.length > 1) {
       legend = '<div class="stk-legend">' + series.map(function (sr) {
-        return '<span class="stk-key"><i style="background:' + sr.color + '"></i>' + esc(sr.label) + "</span>";
+        var now = null;
+        for (var i = sr.values.length - 1; i >= 0; i--) {
+          if (typeof sr.values[i] === "number") { now = sr.values[i]; break; }
+        }
+        return '<span class="stk-key"><i style="background:' + sr.color + '"></i>' + esc(sr.label) +
+          (sr.key === payload.child ? " (you)" : "") +
+          (now == null ? "" : ' <b>' + money(now) + "</b>") + "</span>";
       }).join("") + "</div>";
     }
 

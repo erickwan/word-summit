@@ -211,22 +211,38 @@ Deno.serve(async (req) => {
     if (!CHILDREN[child]) return json({ error: "unknown_child" }, 400);
     const key = RANGES[String(body?.range || "month")] ? String(body.range) : "month";
 
+    // Every grant is loaded so the siblings' lines share this child's timeline,
+    // but only this child's own grants are returned. The others contribute a
+    // total to compare against - not their tickers or share counts.
     const gr = await fetch(
-      `${SB_URL()}/rest/v1/stock_grants?child=eq.${child}&select=*&order=purchased_at.asc`,
+      `${SB_URL()}/rest/v1/stock_grants?select=*&order=purchased_at.asc`,
       { headers: sbHeaders() },
     );
     if (!gr.ok) return json({ error: "read_failed" }, 502);
-    const grants: Grant[] = await gr.json();
+    const everyGrant: Grant[] = await gr.json();
+    const grants = everyGrant.filter((g) => g.child === child);
     if (!grants.length) {
       return json({ child, name: CHILDREN[child], range: key, tickers: [], points: [], grants: [], summary: null });
     }
 
-    const tickers = [...new Set(grants.map((g) => g.ticker))];
+    const tickers = [...new Set(everyGrant.map((g) => g.ticker))];
     const fetched = await Promise.all(tickers.map((t) => seriesFor(t, key)));
     const byTicker: Record<string, Series> = {};
     tickers.forEach((t, i) => { if (fetched[i]) byTicker[t] = fetched[i]!; });
 
     const { tickers: live, points } = buildSeries(grants, byTicker);
+
+    // Sibling totals on exactly this child's stamps, so the lines line up.
+    const famPoints = buildByChild(everyGrant, byTicker).points;
+    const famAt: Record<number, Record<string, number>> = {};
+    famPoints.forEach((p) => { famAt[p.t] = p.per; });
+    const family = points.map((p) => famAt[p.t] || {});
+    const others = Object.keys(CHILDREN).filter((c) => c !== child);
+    const othersNow: Record<string, number> = {};
+    const lastFam = famPoints[famPoints.length - 1];
+    others.forEach((c) => {
+      if (lastFam && typeof lastFam.per[c] === "number") othersNow[c] = lastFam.per[c];
+    });
     const last = points[points.length - 1];
     const first = points[0];
 
@@ -245,6 +261,10 @@ Deno.serve(async (req) => {
       child, name: CHILDREN[child], range: key,
       tickers: live.map((t) => ({ ticker: t, label: byTicker[t]?.name || t })),
       points, grants,
+      family, names: CHILDREN, others, othersNow,
+      // The comparison view spans everyone's history, not just this child's,
+      // so a child who only started last week can still see where they stand.
+      familyPoints: famPoints.map((p) => ({ t: p.t, per: p.per })),
       summary: {
         value, invested, gain: value - invested,
         gainPct: invested > 0 ? ((value - invested) / invested) * 100 : null,
