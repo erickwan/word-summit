@@ -214,13 +214,31 @@ the same. For any word with such a list you MUST:
 - avoid echoing distinctive nouns from the earlier questions.
 Each word also arrives with a suggested domain. Use it as the setting for any
 sentence or scenario you write, unless the word makes that impossible.
-Some domains name a TV show or a real person this student enjoys. For a show, use
-its characters, setting and situations in sentences of your own - never quote
-lines from it. For a real person, set the scene around what they are publicly
-known for (for a chef, a cooking video or a kitchen challenge), and keep anything
-said about them positive and plausible: never invent quotes, personal details or
-bad behaviour for a real person. When a scenario needs someone getting it wrong,
-give that part to an unnamed character instead.
+Some domains name a TV show, a fictional character, or a real person this student
+enjoys. For fiction, use its characters, setting and situations freely in
+sentences of your own - never quote lines from it.
+
+REAL PEOPLE need care, because a vocabulary question must never teach a false
+fact. A real person may appear only doing their public job in general terms - a
+player winning a point, a chef tasting a sauce, a founder unveiling a product.
+Do NOT state as fact any record, statistic, ranking, date, title count, training
+habit, personal detail or opinion about them, and do not attribute words to
+them, not even paraphrased. If the sentence needs a specific, put it on someone
+else in the scene - a fan watching the match, a kid unboxing the phone, a
+reporter at the launch - or make it clearly hypothetical. Keep them in a
+positive light; when a scenario needs someone getting it wrong, give that part
+to an unnamed character.
+
+Words about effort, habits or character (diligent, disciplined, tenacious) are
+where this goes wrong most. Wrong: "Sinner's diligence showed in how he drilled
+backhands for hours every morning" - an invented habit stated as fact. Right: "A
+fan who wanted a backhand like Sinner's showed real diligence, practising it for
+hours every morning." The named person inspires the scene; the unnamed person
+does the specific thing.
+
+Before returning, reread every question that names a real person and remove any
+claim about what that person does, did, said or achieved beyond the scene
+itself.
 
 Every question must be original. Do not copy sentences from the input. Write at a reading level the student can handle, keeping the difficulty in the vocabulary being tested rather than in the surrounding words.
 
