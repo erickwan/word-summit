@@ -110,6 +110,8 @@ header.app{display:flex; align-items:center; justify-content:space-between; gap:
 .fb{border-radius:14px; padding:14px 16px; margin-top:16px; font-weight:700; border:2px solid;}
 .fb.good{background:var(--good-bg); border-color:var(--good);}
 .fb.bad{background:var(--bad-bg); border-color:var(--bad);}
+.fb.skip{background:var(--surface2); border-color:var(--line);}
+.btn.dunno{color:var(--muted); font-weight:500;}
 .fb .note{font-weight:400; margin-top:4px;}
 .progress{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
 .pbar{flex:1; height:10px; border-radius:999px; background:var(--surface2); overflow:hidden;}
@@ -814,7 +816,7 @@ function launchRound(round){
     deckId: round.deckId,
     queue: round.built.entries,
     idx: 0, total: round.built.total, firstTry: {}, streak: 0, bestStreak: 0,
-    types: {}, missed: {}, mastered: {}, regressed: {}, done: false,
+    types: {}, missed: {}, mastered: {}, regressed: {}, skipped: {}, done: false,
     gen: round.questions || {}, genState: round.state
   };
   nextQuestion();
@@ -869,17 +871,47 @@ function answer(correct, detail){
   session.feedback = { correct: correct, detail: detail || '' };
   render();
 }
+/* A synonym or antonym question is unfair when none of the options mean
+   anything to her: she cannot reason her way to it, and guessing would reset
+   the word to level 1 for something she was never taught. Skipping leaves the
+   word exactly as it was - same level, same due date, so it comes back in a
+   later round - and takes the question out of the round's score rather than
+   counting it wrong. The answer is still shown, because that is the moment
+   she is most likely to remember it. */
+function skipQuestion(){
+  if (session.answered) return;
+  var entry = session.queue[session.idx];
+  var q = session.q;
+  if (!q || (q.type !== 'syn' && q.type !== 'ant')) return;
+  session.answered = true;
+  if (!entry.retry && !entry.encore){
+    session.skipped[entry.item.id] = 1;
+    // Counted per word so the Progress tab can show which options are landing
+    // too far outside her vocabulary. Deliberately not a practice attempt:
+    // seen, box and due are untouched.
+    var s = st(entry.item.id);
+    s.skips = (s.skips || 0) + 1;
+    saveLocal();
+  }
+  session.streak = 0;
+  session.feedback = { correct: false, skipped: true, detail: '' };
+  render();
+}
+
 function endSession(){
   var ids = Object.keys(session.firstTry);
   var correct = ids.filter(function(id){ return session.firstTry[id]; }).length;
+  var skips = Object.keys(session.skipped || {}).length;
+  // Scored out of what she was actually asked to answer.
+  var scored = Math.max(0, session.total - skips);
   state.sessions.push({
-    t: Date.now(), correct: correct, total: session.total,
+    t: Date.now(), correct: correct, total: scored, skipped: Object.keys(session.skipped || {}),
     deck: session.deckId, types: session.types, missed: Object.keys(session.missed),
     mastered: Object.keys(session.mastered), regressed: Object.keys(session.regressed)
   });
   saveLocal();
   session.done = true;
-  session.score = { correct: correct, total: session.total };
+  session.score = { correct: correct, total: scored };
   session.earned = correct;
   session.clip = pickClip();
   var treatsBefore = state.acorns || 0;   // stored under its original name so saved progress carries over
@@ -894,7 +926,7 @@ function endSession(){
     var n = document.getElementById('save-note');
     if (n) n.textContent = r.ok ? 'Score synced.' : 'Couldn’t sync right now — the score is saved on this device and will sync later.';
   });
-  if (session.total && correct / session.total >= 0.9) confetti();
+  if (scored && correct / scored >= 0.9) confetti();
 }
 
 
@@ -1448,7 +1480,10 @@ function quizView(){
     body = tag + '<div class="qask">' + (q.type === 'syn' ? 'Synonym hunt' : 'Opposite hunt') + '</div>' +
       '<p class="sentence">Which word means ' + (q.type === 'syn' ? 'almost the <b>same</b> as' : 'the <b>opposite</b> of') + '&hellip;</p>' +
       '<div class="qword">' + esc(item.word) + '</div>' + posChip(item.pos) +
-      '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i, 'font-family:Outfit,sans-serif;font-size:1.05rem;'); }).join('') + '</div>';
+      '<div class="opts">' + q.options.map(function(o, i){ return optBtn(o, i, 'font-family:Outfit,sans-serif;font-size:1.05rem;'); }).join('') + '</div>' +
+      (session.answered ? '' :
+        '<div class="center" style="margin-top:12px;">' +
+        '<button class="btn small dunno" data-act="skip-q">I don\u2019t know any of these words</button></div>');
   } else if (q.type === 'cloze'){
     body = tag + '<div class="qask">Which word fits?</div>' +
       '<p class="sentence">' + esc(q.prompt).replace(/___+/g, '<span class="blank">&nbsp;?&nbsp;</span>') + '</p>' +
@@ -1483,14 +1518,18 @@ function quizView(){
   var fb = '';
   if (session.feedback && session.answered){
     var f = session.feedback;
-    fb = '<div class="fb ' + (f.correct ? 'good' : 'bad') + '">' +
-      (f.correct ? pick(['Nice one!', 'You got it!', 'Correct!', 'Onward and upward!']) : 'Not quite &mdash; the answer is “' + esc(q.answer) + '”') +
+    fb = '<div class="fb ' + (f.skipped ? 'skip' : f.correct ? 'good' : 'bad') + '">' +
+      (f.skipped ? 'Skipped &mdash; this one doesn\u2019t count either way. The answer was “' + esc(q.answer) + '”'
+        : f.correct ? pick(['Nice one!', 'You got it!', 'Correct!', 'Onward and upward!'])
+        : 'Not quite &mdash; the answer is “' + esc(q.answer) + '”') +
       (f.detail ? '<div class="note">' + f.detail + '</div>' : '') +
-      (!f.correct ? wrongPickNote(q) : '') +
+      (!f.correct && !f.skipped ? wrongPickNote(q) : '') +
       (!f.correct && q.type !== 'meaning' && q.type !== 'blank' && q.type !== 'scramble'
         ? '<div class="note">Remember: <b>' + esc(item.word) + '</b> means ' + esc(item.meaning) +
           (q.teach ? '<br>' + esc(q.teach) : (item.tip ? '<br>' + esc(item.tip) : '')) + '</div>' : '') +
-      (!f.correct && !entry.retry ? '<div class="note">You’ll see this one again before the end.</div>' : '') +
+      (f.skipped
+        ? '<div class="note"><b>' + esc(item.word) + '</b> stays exactly where it was, and you\u2019ll meet it again another day.</div>'
+        : (!f.correct && !entry.retry ? '<div class="note">You’ll see this one again before the end.</div>' : '')) +
       '</div><div class="center" style="margin-top:16px;"><button class="btn primary" data-act="next">' +
       (session.idx + 1 >= session.queue.length ? 'Finish' : 'Next') + ' &rarr;</button></div>';
   }
@@ -1509,6 +1548,7 @@ function endView(){
     '<div class="stars">' +
     [0,1,2].map(function(i){ return '<span class="' + (i < stars ? '' : 'off') + '">&#9733;</span>'; }).join('') + '</div>' +
     (session.earned ? '<div class="treat-earned">' + treatIcon(16) + '+' + session.earned + ' treats</div>' : '');
+  var skipIds = Object.keys(session.skipped || {});
   var missedIds = Object.keys(session.missed);
   var missedHtml = '';
   if (missedIds.length){
@@ -1518,7 +1558,11 @@ function endView(){
         return it ? '<li><b>' + esc(it.word) + '</b> &mdash; ' + esc(it.meaning) + '</li>' : '';
       }).join('') + '</ul></div>';
   }
-  var praise = pct >= 0.9 ? 'Peak performance!' : pct >= 0.7 ? 'Great climbing!' : pct >= 0.5 ? 'Good practice!' : 'Tough stretch — those words will come back soon!';
+  // Skipping every question is not a bad round - nothing was got wrong, so
+  // "tough stretch" would be both untrue and discouraging.
+  var allSkipped = !sc.total && Object.keys(session.skipped || {}).length;
+  var praise = allSkipped ? 'Nothing to score this time — and that is fine.'
+    : pct >= 0.9 ? 'Peak performance!' : pct >= 0.7 ? 'Great climbing!' : pct >= 0.5 ? 'Good practice!' : 'Tough stretch — those words will come back soon!';
   var grewHtml = '';
   if (session.grewPup){
     var grewReached = JAR_MILESTONES.indexOf(session.grewPup) + 1;
@@ -1528,14 +1572,24 @@ function endView(){
         '<span class="arrow">&rarr;</span>' + jarPupSvg(grewReached) + '</div>' +
       '</div>';
   }
+  var skipHtml = '';
+  if (skipIds.length && !allSkipped){
+    skipHtml = '<div class="card"><h3 style="margin:0 0 4px;">Skipped &mdash; not counted</h3><ul class="tricky">' +
+      skipIds.map(function(id){
+        var it = WORDS.filter(function(x){ return x.id === id; })[0];
+        return it ? '<li><b>' + esc(it.word) + '</b> &mdash; ' + esc(it.meaning) + '</li>' : '';
+      }).join('') + '</ul></div>';
+  }
   return '<div class="card center home-hero">' + starHtml +
     '<h1 style="margin:8px 0 4px;">' + praise + '</h1>' +
-    '<div class="big-num">' + sc.correct + '<span class="muted" style="font-size:1.4rem;"> / ' + sc.total + '</span></div>' +
+    (allSkipped
+      ? '<p class="explain" style="margin:4px 0 0;">You skipped every question, so none of them counted. Those words keep their level and will come back another day.</p>'
+      : '<div class="big-num">' + sc.correct + '<span class="muted" style="font-size:1.4rem;"> / ' + sc.total + '</span></div>') +
     (session.bestStreak >= 3 ? '<p class="streak" style="margin:8px 0 0;">&#128293; Best streak: ' + session.bestStreak + '</p>' : '') +
     '<div style="margin-top:22px;"><button class="btn primary" data-act="finish">Done</button></div>' +
     '<p class="explain" id="save-note" style="margin-bottom:0;">' +
     (REMOTE ? (dirty ? 'Syncing your score…' : 'Score synced.') : 'Score saved on this device.') + '</p>' +
-    '</div>' + grewHtml + missedHtml;
+    '</div>' + grewHtml + missedHtml + skipHtml;
 }
 
 function decksView(){
@@ -1795,10 +1849,28 @@ function parentView(){
       if (ss.deck && deckIndex[ss.deck]){
         deckLabel = LEVELS[deckIndex[ss.deck].level] + ' ' + parseInt(ss.deck.split('-')[1], 10);
       }
+      var sk = (ss.skipped || []).length;
       return '<div class="wordrow"><span>' + new Date(ss.t).toLocaleDateString(undefined, { month:'short', day:'numeric' }) +
-        ' <span class="muted">' + deckLabel + '</span></span>' +
+        ' <span class="muted">' + deckLabel + (sk ? ' &middot; ' + sk + ' skipped' : '') + '</span></span>' +
         '<span>' + ss.correct + '/' + ss.total + ' ' + accPill(ss.total ? ss.correct / ss.total : null) + '</span></div>';
     }).join('') + '</div>' : '<div class="card explain">No practice rounds yet — the history will appear here.</div>';
+
+  // Words she has told us she could not attempt. A word building up skips
+  // means the synonym and antonym options are landing outside her vocabulary,
+  // which is worth knowing separately from getting them wrong.
+  var skipRows = WORDS.map(function(it){ return { it: it, n: (st0(it.id).skips || 0) }; })
+    .filter(function(r){ return r.n > 0; })
+    .sort(function(a, b){ return b.n - a.n; })
+    .slice(0, 12);
+  var skipHtml = skipRows.length
+    ? '<div class="card"><h3 style="margin:0 0 4px;">Skipped &mdash; didn\u2019t know the options</h3>' +
+      '<p class="explain" style="margin:0 0 8px;">Evia pressed &ldquo;I don\u2019t know any of these words&rdquo; on a synonym or ' +
+      'opposite question. Nothing was counted against her, and the word kept its level.</p><ul class="tricky">' +
+      skipRows.map(function(r){
+        return '<li><b>' + esc(r.it.word) + '</b> <span class="muted">' + r.n + '&times; &middot; level ' +
+          st0(r.it.id).box + ' &middot; ' + esc(r.it.meaning) + '</span></li>';
+      }).join('') + '</ul></div>'
+    : '';
 
   var wordTable = parentWordsCard();
 
@@ -1814,7 +1886,7 @@ function parentView(){
       focus.map(function(r){
         return '<li><b>' + esc(r.it.word) + '</b> ' + accPill(r.a) + ' <span class="muted">level ' + r.s.box + ' &middot; ' + esc(r.it.meaning) + '</span></li>';
       }).join('') + '</ul></div>' : '') +
-    deckTable + typeHtml + wordTable + sessionsHtml +
+    skipHtml + deckTable + typeHtml + wordTable + sessionsHtml +
     '<p class="explain">How it works: ' + DAILY_NEW + ' new words are introduced each day, easiest decks first, with a preview card before being quizzed. Every word starts at level 1; each right answer moves it up a level with a longer rest (1, 3, 7, then 14 days), and a miss sends it back to level 1. ' +
     (REMOTE ? 'Scores sync to the cloud, so any device with this link shows the same progress.' : 'Scores are stored on this device.') + '</p>';
 }
@@ -1951,6 +2023,7 @@ root.addEventListener('click', function(e){
   if (act === 'finish'){ session = null; render(); return; }
   if (act === 'submit-typed'){ submitTyped(); return; }
   if (act === 'scr-undo'){ if (!session.answered && scr.picked.length){ scr.picked.pop(); renderScramble(); } return; }
+  if (act === 'skip-q'){ skipQuestion(); return; }
   if (act === 'stk-range'){
     stockUI.range = t.dataset.range; loadStocks(); render(); return;
   }
