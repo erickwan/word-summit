@@ -255,6 +255,48 @@ var QGEN = (function () {
     });
   }
 
-  return { generate: generate, generateCached: generateCached, validate: validate,
+  /* Re-ask one question with options the student will actually recognise.
+     Only the choices change; the word being tested stays the same, so the
+     question still counts normally once she answers it. Anything that comes
+     back malformed is rejected and the original question is left alone. */
+  function easier(config, item, type, avoid, profile) {
+    if (!config || !config.url || !config.key) return Promise.resolve(null);
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 30000);
+
+    return fetch(config.url + "/functions/v1/generate-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: config.key, Authorization: "Bearer " + config.key },
+      body: JSON.stringify({
+        mode: "easier", profile: profile, type: type,
+        word: { id: item.id, word: item.word, pos: item.pos, meaning: item.meaning },
+        avoid: avoid || []
+      }),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      clearTimeout(timer);
+      if (!d || d.error) return null;
+      var opts = (d.options || []).map(function (o) { return String(o).trim(); }).filter(Boolean);
+      var answer = String(d.answer || "").trim();
+      if (opts.length < 3 || opts.length > 4) return null;
+      if (opts.indexOf(answer) < 0) return null;
+      var lower = opts.map(function (o) { return o.toLowerCase(); });
+      for (var i = 0; i < lower.length; i++) if (lower.indexOf(lower[i]) !== i) return null;
+      // the word under test must never be one of the choices
+      var target = String(item.word).toLowerCase();
+      for (var j = 0; j < lower.length; j++) {
+        if (lower[j] === target || mentions(lower[j], target)) return null;
+      }
+      var why = {};
+      (d.distractors || []).forEach(function (x) {
+        if (!x) return;
+        var o = String(x.option || "").trim(), t = String(x.why || "").trim();
+        if (o && t && o !== answer && opts.indexOf(o) >= 0) why[o] = t;
+      });
+      return { options: opts, answer: answer, teach: String(d.teach || "").trim(), why: why };
+    }).catch(function () { clearTimeout(timer); return null; });
+  }
+
+  return { generate: generate, generateCached: generateCached, validate: validate, easier: easier,
            Cache: Cache, AskLog: AskLog };
 })();

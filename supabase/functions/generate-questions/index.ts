@@ -121,6 +121,78 @@ const SENTENCE_SCHEMA = {
   },
 };
 
+const EASIER_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["answer", "options", "teach", "distractors"],
+  properties: {
+    answer: { type: "string", description: "The correct option, which must also appear in options." },
+    options: {
+      type: "array",
+      items: { type: "string" },
+      description: "Exactly 4 single words: the answer plus 3 wrong ones.",
+    },
+    teach: { type: "string", description: "One sentence on why the answer fits the target word." },
+    distractors: {
+      type: "array",
+      description: "One entry for each wrong option.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["option", "why"],
+        properties: {
+          option: { type: "string" },
+          why: { type: "string", description: "One sentence: what that word means and why it does not fit." },
+        },
+      },
+    },
+  },
+};
+
+/* A second pass over one question, asked for by the student herself when the
+   options meant nothing to her. The word being tested stays; only the words she
+   has to choose between get easier. */
+async function generateEasier(client: any, body: any, profile: any) {
+  const w = body.word || {};
+  const kind = body.type === "ant" ? "opposite" : "synonym";
+  const avoid = (body.avoid || []).map((x: unknown) => String(x)).slice(0, 8);
+
+  const sys = `You are rewriting the answer options for one vocabulary question for ${profile.name}, ${profile.age}.
+
+She has just pressed a button saying the options were too hard: the words she was asked to choose between were outside her vocabulary, so the question tested nothing. Your job is to ask the SAME question with words she will certainly know.
+
+- Keep the word being tested exactly as it is. Only the four options change.
+- Every option must be an everyday word a twelve-year-old reads without pausing - the kind that appears in ordinary conversation, not a word she would have to be taught.
+- The correct option must be a genuinely accurate ${kind} of the target word. Do not settle for a loose association just to keep it easy; if the precise ${kind} is unavoidably hard, choose the closest everyday word that is still truthfully correct.
+- The three wrong options must be the same part of speech, equally easy, and clearly wrong in meaning - not near-misses. She has already struggled here; this question should be winnable by someone who knows what the target word means.
+- Never use the target word itself, any form of it, or any option listed as already tried.
+- Plain ASCII quotes and apostrophes. Single words only, no phrases.`;
+
+  const lines = [
+    `target word: ${w.word}`,
+    `part of speech: ${w.pos || "unknown"}`,
+    `meaning: ${w.meaning}`,
+    `question: pick the word closest in meaning to the ${kind === "opposite" ? "OPPOSITE of the target" : "target"}`,
+    avoid.length ? `options that were too hard, do not reuse: ${avoid.join(", ")}` : null,
+  ].filter(Boolean).join("\n");
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 2000,
+    output_config: { effort: "low", format: { type: "json_schema", schema: EASIER_SCHEMA } },
+    system: [{ type: "text", text: sys }],
+    messages: [{ role: "user", content: `Rewrite the options for this question.\n\n${lines}` }],
+  });
+
+  if (response.stop_reason === "refusal") return { error: "refusal" };
+  let parsed: any = (response as any).parsed_output;
+  if (!parsed) {
+    const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+    try { parsed = JSON.parse(text); } catch { return { error: "unparseable" }; }
+  }
+  return parsed;
+}
+
 function sentenceSystemPrompt(profile: { name: string; age: string; band: string }) {
   const young = profile.band === "upper-elementary";
   return `You write example sentences for ${profile.name}, ${profile.age}, who is building a vocabulary list.
@@ -329,10 +401,15 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json().catch(() => null);
     const words = body?.words;
-    if (!Array.isArray(words) || words.length === 0) {
+    // "easier" rewrites the options of a single question and carries `word`
+    // rather than a `words` list.
+    if (body?.mode !== "easier" && (!Array.isArray(words) || words.length === 0)) {
       return json({ error: "no_words" }, 400);
     }
-    if (words.length > MAX_WORDS_PER_CALL) {
+    if (body?.mode === "easier" && !body?.word?.word) {
+      return json({ error: "no_word" }, 400);
+    }
+    if (Array.isArray(words) && words.length > MAX_WORDS_PER_CALL) {
       return json({ error: "too_many_words", max: MAX_WORDS_PER_CALL }, 400);
     }
 
@@ -363,6 +440,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const client = new Anthropic({ apiKey });
+
+    if (body?.mode === "easier") {
+      const out = await generateEasier(client, body, profile);
+      if (out.error) return json({ error: out.error }, 502);
+      return json(out);
+    }
 
     if (body?.mode === "sentences") {
       const out = await generateSentences(client, words, profile);
