@@ -82,6 +82,9 @@ header.app{display:flex; align-items:center; justify-content:space-between; gap:
 .lvl-2{background:rgba(223,162,47,.22);}
 .lvl-3{background:rgba(217,79,110,.18);}
 .qword{font-family:Outfit,sans-serif; font-weight:700; font-size:2.1rem; margin:6px 0 2px;}
+.saybtn{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;border:2px solid var(--line);
+  background:var(--surface2);cursor:pointer;font-size:1.15rem;vertical-align:middle;margin-left:10px;box-shadow:0 2px 0 var(--line);}
+.saybtn:active{transform:translateY(1px);box-shadow:none;}
 .qask{color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:.78rem;}
 .newbadge{color:var(--accent-deep); font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:.78rem;}
 :root[data-theme="dark"] .newbadge{color:var(--accent);}
@@ -1415,6 +1418,26 @@ function homeView(){
     '<p class="explain center">' + DAILY_NEW + ' new words join each day, easiest decks first. Words you miss come back sooner; words you know rest longer as they level up.</p>';
 }
 
+/* Tap-to-hear pronunciation on new-word cards (browser speech synthesis). */
+function speakWord(word){
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(word);
+    u.lang = 'en-US';
+    u.rate = 0.85;
+    var vs = window.speechSynthesis.getVoices().filter(function(v){
+      return v.lang && v.lang.indexOf('en') === 0 && v.localService;
+    });
+    if (vs.length) u.voice = vs[0];
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function sayBtn(word){
+  if (!('speechSynthesis' in window)) return '';
+  return ' <button class="saybtn" data-say="' + esc(word) + '" aria-label="Hear this word" title="Hear it">&#128266;</button>';
+}
+
 function learnView(){
   var item = session.queue[session.idx].item;
   var head = progressHead();
@@ -1423,7 +1446,7 @@ function learnView(){
   return head + '<div class="card">' +
     '<div class="newbadge">&#10024; New word</div>' +
     '<div class="learncard">' +
-    '<div class="qword">' + esc(item.word) + '</div>' +
+    '<div class="qword">' + esc(item.word) + sayBtn(item.word) + '</div>' +
     posChip(item.pos) + ' ' + levelChip(item.level) +
     '<p class="sentence" style="margin:14px 0 6px;"><b>' + esc(item.meaning) + '</b></p>' +
     (blankExample ? '<p class="sentence muted" style="margin:0;">&ldquo;' + esc(blankExample) + '&rdquo;</p>' : '') +
@@ -2005,6 +2028,7 @@ root.addEventListener('click', function(e){
     if (r){ r.state = 'skipped'; r.questions = {}; launchRound(r); }
     return;
   }
+  if (t.dataset.say){ speakWord(t.dataset.say); return; }
   if (act === 'quit'){ if (confirm('Quit this round? Answered words still count.')) { session = null; render(); } return; }
   if (act === 'next'){ session.idx++; session.feedback = null; nextQuestion(); return; }
   if (act === 'finish'){ session = null; render(); return; }
