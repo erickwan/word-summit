@@ -93,6 +93,7 @@ header.app{display:flex; align-items:center; justify-content:space-between; gap:
 .opt{text-align:left; font-size:1rem; line-height:1.4; padding:13px 16px; border-radius:14px; cursor:pointer;
   background:var(--surface2); color:var(--ink); border:2px solid var(--line); font-family:inherit;}
 .opt:hover{border-color:var(--brand);}
+.opt.sel{border-color:var(--brand); background:var(--brand-soft);}
 .opt.right{background:var(--good-bg); border-color:var(--good);}
 .opt.wrong{background:var(--bad-bg); border-color:var(--bad);}
 .opt[disabled]{cursor:default;}
@@ -1490,6 +1491,8 @@ function quizView(){
       dis = ' disabled';
       if (o === q.answer) cls += ' right';
       else if (i === session.chosen) cls += ' wrong';
+    } else if (i === session.chosen){
+      cls += ' sel';
     }
     return '<button class="' + cls + '" data-opt="' + i + '"' + dis + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' + esc(o) + '</button>';
   }
@@ -1542,6 +1545,12 @@ function quizView(){
       '<div class="slots" id="slots"></div>' +
       '<div class="tiles" id="tiles"></div>' +
       '<div style="margin-top:14px;"><button class="btn" data-act="scr-undo">&larr; Undo</button></div>';
+  }
+
+  // A tap only selects; Check locks it in, so a stray tap costs nothing.
+  if (q.options && !session.answered){
+    body += '<div class="center" style="margin-top:16px;"><button class="btn primary" data-act="check-opt"' +
+      (session.chosen >= 0 ? '' : ' disabled') + '>Check &rarr;</button></div>';
   }
 
   var fb = '';
@@ -2048,10 +2057,16 @@ root.addEventListener('click', function(e){
     });
     return;
   }
+  if (act === 'check-opt'){
+    if (session && !session.answered && session.chosen >= 0){
+      var cq = session.q;
+      answer(cq.options[session.chosen] === cq.answer, '');
+    }
+    return;
+  }
   if (t.dataset.opt !== undefined && session && !session.answered){
-    var q = session.q;
     session.chosen = Number(t.dataset.opt);
-    answer(q.options[session.chosen] === q.answer, '');
+    render();
   }
 });
 
