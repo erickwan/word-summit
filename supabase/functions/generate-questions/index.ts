@@ -354,9 +354,11 @@ function recentLines(recent: any[]): string | null {
   ].join("\n");
 }
 
-function userPrompt(words: any[], topics: string[] = []) {
-  // The shared domains plus this child's own favourites, each equally likely.
-  const pool = DOMAINS.concat(topics);
+function userPrompt(words: any[], characters: string[] = []) {
+  // Words the app marked characterOk are set among the child's favourite
+  // characters (the app marks at most two per round; the budget here is a
+  // backstop). Everything else draws from the shared everyday domains.
+  let characterBudget = 2;
   const lines = words.map((w) => {
     const h = w.history || {};
     const seen = h.seen || 0;
@@ -376,7 +378,10 @@ function userPrompt(words: any[], topics: string[] = []) {
       w.syn ? `  synonym the student has already been shown: ${w.syn}` : null,
       w.ant ? `  antonym the student has already been shown: ${w.ant}` : null,
       `  student history: ${status}`,
-      `  suggested domain for the setting: ${pool[Math.floor(Math.random() * pool.length)]}`,
+      `  suggested domain for the setting: ${
+        (characters.length && w.characterOk && characterBudget-- > 0)
+          ? characters[Math.floor(Math.random() * characters.length)]
+          : DOMAINS[Math.floor(Math.random() * DOMAINS.length)]}`,
       recentLines(w.recent),
     ].filter(Boolean).join("\n");
   });
@@ -419,8 +424,10 @@ Deno.serve(async (req: Request) => {
       goal: String(body?.profile?.goal || "vocabulary"),
       band: String(body?.profile?.band || "middle-school"),
     };
-    // Extra setting domains chosen for this child, sent by their app.
-    const topics: string[] = (Array.isArray(body?.profile?.topics) ? body.profile.topics : [])
+    // The child's favourite "characters" pool, sent by their app; at most two
+    // questions a round are set in it ("topics" accepted as the legacy name).
+    const characters: string[] = (Array.isArray(body?.profile?.characters) ? body.profile.characters
+        : Array.isArray(body?.profile?.topics) ? body.profile.topics : [])
       .map((t: unknown) => String(t).trim().slice(0, 80))
       .filter(Boolean)
       .slice(0, 12);
@@ -462,7 +469,7 @@ Deno.serve(async (req: Request) => {
       },
       system: [{ type: "text", text: systemPrompt(profile),
                  cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: userPrompt(words, topics) }],
+      messages: [{ role: "user", content: userPrompt(words, characters) }],
     });
 
     if (response.stop_reason === "refusal") {

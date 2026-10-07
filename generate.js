@@ -97,6 +97,20 @@ var QGEN = (function () {
     if (!config || !config.url || !config.key || !words.length) {
       return Promise.resolve({ ok: false, why: "not_configured", questions: {} });
     }
+    // The child's favourite characters may set at most two questions per
+    // round; mark the lucky words before chunking so the cap spans chunks.
+    if (profile && profile.characters && profile.characters.length){
+      var order = [];
+      for (var m = 0; m < words.length; m++) order.push(m);
+      for (var j = order.length - 1; j > 0; j--){
+        var k = Math.floor(Math.random() * (j + 1));
+        var tmp = order[j]; order[j] = order[k]; order[k] = tmp;
+      }
+      words = words.map(function (w) {
+        return { item: w.item, history: w.history, recent: w.recent };
+      });
+      order.slice(0, 2).forEach(function (i) { words[i].characterOk = true; });
+    }
     var chunks = [];
     for (var i = 0; i < words.length; i += CHUNK) chunks.push(words.slice(i, i + CHUNK));
 
@@ -128,6 +142,7 @@ var QGEN = (function () {
           id: w.item.id, word: w.item.word, pos: w.item.pos,
           meaning: w.item.meaning, example: w.item.example,
           recent: w.recent || [],
+          characterOk: !!w.characterOk,
           level: w.item.level, history: w.history
         };
       })
