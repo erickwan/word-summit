@@ -1548,7 +1548,7 @@ function quizView(){
   if (session.feedback && session.answered){
     var f = session.feedback;
     fb = '<div class="fb ' + (f.correct ? 'good' : 'bad') + '">' +
-      (f.correct ? pick(['Nice one!', 'You got it!', 'Correct!', 'Onward and upward!']) : 'Not quite &mdash; the answer is “' + esc(q.answer) + '”') +
+      (f.correct ? pick(['Nice one!', 'You got it!', 'Correct!', 'Onward and upward!']) : 'Not quite &mdash; the answer is “' + esc(q.answer) + '”') + sayBtn(item.word) +
       (f.detail ? '<div class="note">' + f.detail + '</div>' : '') +
       (!f.correct ? wrongPickNote(q) : '') +
       (!f.correct && q.type !== 'meaning' && q.type !== 'blank' && q.type !== 'scramble'
