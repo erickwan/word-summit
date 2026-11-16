@@ -43,6 +43,16 @@ function prettyDate(day: string): string {
     timeZone: "UTC", weekday: "long", month: "long", day: "numeric",
   });
 }
+// The local calendar day before `day`. Anchoring at UTC noon keeps the step
+// exactly one day across DST changes.
+function prevDay(day: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const ms = Date.UTC(y, m - 1, d, 12) - 86400000;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(ms));
+}
+
 // Word ids are "<word>-<n>", so the word reads out of the id without the list.
 const wordOf = (id: string) => String(id).replace(/-[^-]*$/, "");
 function mins(ms: number): string {
@@ -177,8 +187,10 @@ Deno.serve(async (req: Request) => {
       return json({ sent: false, reason: "outside_send_window", localHour: laHour(Date.now()) });
     }
 
-    // The day that has just finished, unless one is named for a re-run.
-    const day = url.searchParams.get("day") || laDate(Date.now() - 12 * 3600_000);
+    // The day that has just finished, unless one is named for a re-run. Derived
+    // from the calendar rather than an hours offset, so a run outside the 7am
+    // window still reports yesterday.
+    const day = url.searchParams.get("day") || prevDay(laDate(Date.now()));
 
     if (!dryRun && !force) {
       const { data: already } = await admin.from("report_log").select("day").eq("day", day).maybeSingle();
